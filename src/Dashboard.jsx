@@ -768,7 +768,7 @@ console.log('💰 Ventas obtenidas:', ventas, 'Error:', ventasError);
         </div>
       </div>
     </div>
-  );
+  )
 };
 
 export default Dashboard;

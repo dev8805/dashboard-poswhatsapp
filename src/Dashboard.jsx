@@ -764,7 +764,7 @@ console.log('💰 Ventas obtenidas:', ventas, 'Error:', ventasError);
         {/* Footer */}
         <div className="mt-8 text-center text-gray-500 text-sm">
           <p>Dashboard generado automáticamente • PosWhatsApp © 2025</p>
-          <p className="mt-1 text-xs">Token: {token.substring(0, 10)}...</p>
+          <p className="mt-1 text-xs">Token: {token.substring(0, 10) + '...'}</p>
         </div>
       </div>
     </div>

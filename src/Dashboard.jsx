@@ -553,7 +553,7 @@ const Dashboard = () => {
     doc.text('Top Productos', 14, yPosition);
     yPosition += 8;
 
-    doc.autoTable({
+    autoTable(doc, {
       startY: yPosition,
       head: [['Código', 'Producto', 'Vendidos', 'Total', 'Stock', 'Margen', 'Rotación']],
       body: dashboardData.topProductos.map(p => [
@@ -582,7 +582,7 @@ const Dashboard = () => {
       ? dashboardData.alertas.stockBajo.map(alert => [alert])
       : [['No hay alertas de stock bajo']];
 
-    doc.autoTable({
+      autoTable(doc, {
       startY: yPosition,
       head: [['Producto']],
       body: alertasBody,

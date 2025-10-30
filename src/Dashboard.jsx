@@ -96,12 +96,12 @@ const Dashboard = () => {
 
   const loadTenantAndUserInfo = async (tenant_id, user_id) => {
     try {
-      // Cargar información del tenant
-      const { data: tenant, error: tenantError } = await supabase
-        .from('tenants')
-        .select('nombre_negocio')
-        .eq('tenant_id', tenant_id)
-        .single();
+      // Cargar información del usuario
+const { data: user, error: userError } = await supabase
+  .from('tenant_users')
+  .select('nombre')
+  .eq('user_id', user_id)
+  .single();
 
       if (tenantError) throw tenantError;
       setTenantInfo(tenant);

@@ -27,10 +27,9 @@ const Dashboard = () => {
 
       setToken(urlToken);
 
-      // Validar token en Supabase
       const { data: tokenData, error } = await supabase
         .from('form_tokens')
-        .select('tenant_id, user_id, expires_at, usos')
+        .select('tenant_id, user_id, expires_at, usos, fecha_inicio, fecha_fin')
         .eq('token', urlToken)
         .eq('tipo_form', 'informe_dashboard')
         .single();
@@ -41,7 +40,6 @@ const Dashboard = () => {
         return;
       }
 
-      // Verificar si el token no ha expirado
       const now = new Date();
       const expiresAt = new Date(tokenData.expires_at);
       
@@ -51,7 +49,6 @@ const Dashboard = () => {
         return;
       }
 
-      // Actualizar uso del token
       await supabase
         .from('form_tokens')
         .update({ 
@@ -63,58 +60,48 @@ const Dashboard = () => {
       setIsValidToken(true);
       setTenantId(tokenData.tenant_id);
 
-      // Cargar datos del dashboard
-      await loadDashboardData(tokenData.tenant_id);
+      if (tokenData.fecha_inicio && tokenData.fecha_fin) {
+        setDateRange('custom');
+        setCustomDates({
+          startDate: tokenData.fecha_inicio,
+          endDate: tokenData.fecha_fin
+        });
+      }
+
+      await loadDashboardData(tokenData.tenant_id, tokenData.fecha_inicio, tokenData.fecha_fin);
     };
 
     initDashboard();
   }, []);
 
- 
   const loadDashboardData = async (tenant_id, fechaInicioToken = null, fechaFinToken = null) => {
     try {
       console.log('🔍 Cargando datos para tenant_id:', tenant_id);
       
-      // Si hay fechas del token, usarlas; si no, calcular según el rango
       let startDate, endDate;
       
       if (fechaInicioToken && fechaFinToken) {
-        // Usar fechas del token (formato YYYY-MM-DD)
         startDate = `${fechaInicioToken} 00:00:00`;
         endDate = `${fechaFinToken} 23:59:59`;
         console.log('📅 Usando fechas del token:', { startDate, endDate });
       } else {
-        // Calcular fechas según el rango seleccionado
         const dateRangeResult = getDateRange(dateRange);
         startDate = dateRangeResult.startDate;
         endDate = dateRangeResult.endDate;
         console.log('📅 Usando rango seleccionado:', { startDate, endDate });
       }
-  
-      // ... resto del código de loadDashboardData permanece igual
-        
-              // 1. Obtener ventas
-const { data: ventas, error: ventasError } = await supabase
-.from('ventas')
-.select('*')
-.eq('tenant_id', tenant_id)
-.eq('activo', true)
-.is('deleted_at', null);
-// TEMPORALMENTE QUITAMOS EL FILTRO DE FECHAS PARA VER SI FUNCIONA
 
-console.log('💰 Ventas obtenidas:', ventas, 'Error:', ventasError);
-
-              console.log('🔍 Consulta ventas:', {
-                tenant_id,
-                startDate,
-                endDate,
-                ventasEncontradas: ventas?.length || 0
-              });
-
+      const { data: ventas, error: ventasError } = await supabase
+        .from('ventas')
+        .select('*')
+        .eq('tenant_id', tenant_id)
+        .eq('activo', true)
+        .is('deleted_at', null)
+        .gte('created_at', startDate)
+        .lte('created_at', endDate);
 
       if (ventasError) throw ventasError;
 
-      // 2. Obtener compras (entradas)
       const { data: compras, error: comprasError } = await supabase
         .from('movimientos_inventario')
         .select('*')
@@ -127,7 +114,6 @@ console.log('💰 Ventas obtenidas:', ventas, 'Error:', ventasError);
 
       if (comprasError) throw comprasError;
 
-      // 3. Obtener consumos
       const { data: consumos, error: consumosError } = await supabase
         .from('movimientos_inventario')
         .select('*')
@@ -140,7 +126,6 @@ console.log('💰 Ventas obtenidas:', ventas, 'Error:', ventasError);
 
       if (consumosError) throw consumosError;
 
-      // 4. Obtener gastos
       const { data: gastos, error: gastosError } = await supabase
         .from('gastos')
         .select('*')
@@ -152,7 +137,6 @@ console.log('💰 Ventas obtenidas:', ventas, 'Error:', ventasError);
 
       if (gastosError) throw gastosError;
 
-      // 5. Obtener productos
       const { data: productos, error: productosError } = await supabase
         .from('productos')
         .select('*')
@@ -162,7 +146,6 @@ console.log('💰 Ventas obtenidas:', ventas, 'Error:', ventasError);
 
       if (productosError) throw productosError;
 
-      // Procesar datos
       const processedData = processDashboardData(ventas, compras, consumos, gastos, productos);
       setDashboardData(processedData);
       setLoading(false);
@@ -172,46 +155,55 @@ console.log('💰 Ventas obtenidas:', ventas, 'Error:', ventasError);
       setLoading(false);
     }
   };
-
   const getDateRange = (range) => {
     const now = new Date();
     let fechaInicio, fechaFin;
-  
+
     switch (range) {
       case 'today':
-        fechaInicio = new Date(now.setHours(0, 0, 0, 0)).toISOString();
-        fechaFin = new Date(now.setHours(23, 59, 59, 999)).toISOString();
+        fechaInicio = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+        fechaFin = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
         break;
       case 'week':
-        const weekStart = new Date(now);
-        weekStart.setDate(now.getDate() - 7);
-        fechaInicio = weekStart.toISOString();
-        fechaFin = new Date().toISOString();
+        fechaInicio = new Date(now);
+        fechaInicio.setDate(now.getDate() - 7);
+        fechaInicio.setHours(0, 0, 0, 0);
+        fechaFin = new Date(now);
+        fechaFin.setHours(23, 59, 59, 999);
         break;
       case 'month':
-        const monthStart = new Date(now);
-        monthStart.setDate(1);
-        monthStart.setHours(0, 0, 0, 0);
-        fechaInicio = monthStart.toISOString();
-        fechaFin = new Date().toISOString();
+        fechaInicio = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
+        fechaFin = new Date(now);
+        fechaFin.setHours(23, 59, 59, 999);
         break;
       default:
-        fechaInicio = new Date(now.setHours(0, 0, 0, 0)).toISOString();
-        fechaFin = new Date(now.setHours(23, 59, 59, 999)).toISOString();
+        fechaInicio = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+        fechaFin = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
     }
-  
-    return { startDate: fechaInicio, endDate: fechaFin };
+
+    const formatearFecha = (fecha) => {
+      const año = fecha.getFullYear();
+      const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+      const dia = String(fecha.getDate()).padStart(2, '0');
+      const hora = String(fecha.getHours()).padStart(2, '0');
+      const minuto = String(fecha.getMinutes()).padStart(2, '0');
+      const segundo = String(fecha.getSeconds()).padStart(2, '0');
+      return `${año}-${mes}-${dia} ${hora}:${minuto}:${segundo}`;
+    };
+
+    return { 
+      startDate: formatearFecha(fechaInicio), 
+      endDate: formatearFecha(fechaFin) 
+    };
   };
 
   const processDashboardData = (ventas, compras, consumos, gastos, productos) => {
-    // Calcular totales
     const totalVentas = ventas.reduce((sum, v) => sum + parseFloat(v.total || 0), 0);
     const totalCompras = compras.reduce((sum, c) => sum + parseFloat(c.costo_total || 0), 0);
     const totalConsumos = consumos.reduce((sum, c) => sum + parseFloat(c.costo_total || 0), 0);
     const totalGastos = gastos.reduce((sum, g) => sum + parseFloat(g.monto || 0), 0);
     const utilidadBruta = totalVentas - totalCompras - totalConsumos;
 
-    // Procesar productos más vendidos
     const productosVendidos = {};
     ventas.forEach(venta => {
       if (venta.items && Array.isArray(venta.items)) {
@@ -231,7 +223,6 @@ console.log('💰 Ventas obtenidas:', ventas, 'Error:', ventasError);
       }
     });
 
-    // Top 5 productos
     const topProductos = Object.values(productosVendidos)
       .sort((a, b) => b.total - a.total)
       .slice(0, 5)
@@ -248,39 +239,28 @@ console.log('💰 Ventas obtenidas:', ventas, 'Error:', ventasError);
         };
       });
 
-    // Productos para gráfico de pastel
     const productosChart = topProductos.map(p => ({
       nombre: p.nombre.length > 15 ? p.nombre.substring(0, 15) + '...' : p.nombre,
       valor: p.total,
       porcentaje: Math.round((p.total / totalVentas) * 100)
     }));
 
-    // Alertas de stock bajo
     const stockBajo = productos
       .filter(p => parseFloat(p.stock_actual) < 10)
       .slice(0, 5)
       .map(p => `${p.producto} (${Math.round(p.stock_actual)} und)`);
 
-    // Productos sin movimiento (sin ventas en el período)
     const productosSinMovimiento = productos
       .filter(p => !productosVendidos[p.producto])
       .slice(0, 5)
       .map(p => p.producto);
 
-    // Producto más rentable
     const masRentable = topProductos.length > 0 ? 
       topProductos.reduce((max, p) => p.margen > max.margen ? p : max, topProductos[0]) : null;
 
-    // Ventas por día (últimos 7 días)
     const ventasPorDia = getVentasPorDia(ventas, compras, gastos);
-
-    // Tendencia acumulada
     const tendencia = getTendenciaAcumulada(ventas);
-
-    // Últimos movimientos
     const ultimosMovimientos = getUltimosMovimientos(ventas, compras, consumos, productos);
-
-    // KPIs
     const ticketPromedio = ventas.length > 0 ? totalVentas / ventas.length : 0;
     const productoMayorRotacion = topProductos.length > 0 ? topProductos[0].nombre : 'N/A';
 
@@ -305,7 +285,7 @@ console.log('💰 Ventas obtenidas:', ventas, 'Error:', ventasError);
         ticketPromedio: ticketPromedio,
         mayorRotacion: productoMayorRotacion,
         masRentable: masRentable ? masRentable.nombre : 'N/A',
-        variacion: 0 // Calcular después con datos históricos
+        variacion: 0
       }
     };
   };
@@ -314,7 +294,6 @@ console.log('💰 Ventas obtenidas:', ventas, 'Error:', ventasError);
     const dias = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
     const ventasPorDia = {};
 
-    // Inicializar últimos 7 días
     for (let i = 6; i >= 0; i--) {
       const fecha = new Date();
       fecha.setDate(fecha.getDate() - i);
@@ -322,7 +301,6 @@ console.log('💰 Ventas obtenidas:', ventas, 'Error:', ventasError);
       ventasPorDia[dia] = { dia, ventas: 0, compras: 0, gastos: 0 };
     }
 
-    // Agregar ventas
     ventas.forEach(v => {
       const fecha = new Date(v.created_at);
       const dia = dias[fecha.getDay()];
@@ -331,7 +309,6 @@ console.log('💰 Ventas obtenidas:', ventas, 'Error:', ventasError);
       }
     });
 
-    // Agregar compras
     compras.forEach(c => {
       const fecha = new Date(c.created_at);
       const dia = dias[fecha.getDay()];
@@ -340,7 +317,6 @@ console.log('💰 Ventas obtenidas:', ventas, 'Error:', ventasError);
       }
     });
 
-    // Agregar gastos
     gastos.forEach(g => {
       const fecha = new Date(g.created_at);
       const dia = dias[fecha.getDay()];
@@ -357,7 +333,6 @@ console.log('💰 Ventas obtenidas:', ventas, 'Error:', ventasError);
     const ventasPorDia = {};
     let acumulado = 0;
 
-    // Inicializar últimos 7 días
     for (let i = 6; i >= 0; i--) {
       const fecha = new Date();
       fecha.setDate(fecha.getDate() - i);
@@ -365,7 +340,6 @@ console.log('💰 Ventas obtenidas:', ventas, 'Error:', ventasError);
       ventasPorDia[dia] = 0;
     }
 
-    // Sumar ventas por día
     ventas.forEach(v => {
       const fecha = new Date(v.created_at);
       const dia = dias[fecha.getDay()];
@@ -374,7 +348,6 @@ console.log('💰 Ventas obtenidas:', ventas, 'Error:', ventasError);
       }
     });
 
-    // Crear tendencia acumulada
     return Object.entries(ventasPorDia).map(([dia, monto]) => {
       acumulado += monto;
       return { dia, acumulado: Math.round(acumulado) };
@@ -384,7 +357,6 @@ console.log('💰 Ventas obtenidas:', ventas, 'Error:', ventasError);
   const getUltimosMovimientos = (ventas, compras, consumos, productos) => {
     const movimientos = [];
 
-    // Agregar ventas
     ventas.slice(0, 10).forEach(v => {
       if (v.items && v.items.length > 0) {
         const item = v.items[0];
@@ -398,7 +370,6 @@ console.log('💰 Ventas obtenidas:', ventas, 'Error:', ventasError);
       }
     });
 
-    // Agregar compras
     compras.slice(0, 5).forEach(c => {
       const producto = productos.find(p => p.producto_id === c.producto_id);
       movimientos.push({
@@ -410,7 +381,6 @@ console.log('💰 Ventas obtenidas:', ventas, 'Error:', ventasError);
       });
     });
 
-    // Agregar consumos
     consumos.slice(0, 5).forEach(c => {
       const producto = productos.find(p => p.producto_id === c.producto_id);
       movimientos.push({
@@ -422,7 +392,6 @@ console.log('💰 Ventas obtenidas:', ventas, 'Error:', ventasError);
       });
     });
 
-    // Ordenar por fecha más reciente
     return movimientos
       .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
       .slice(0, 10);
@@ -442,16 +411,94 @@ console.log('💰 Ventas obtenidas:', ventas, 'Error:', ventasError);
 
   const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
 
-  // Recargar datos cuando cambia el rango de fechas
   useEffect(() => {
     if (tenantId && !customDates) {
-      // Solo recargar si NO hay fechas custom del token
       setLoading(true);
       loadDashboardData(tenantId);
     }
   }, [dateRange]);
 
-        {/* Resumen Ejecutivo */}
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-emerald-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Cargando datos del dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isValidToken) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
+          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Acceso Denegado</h2>
+          <p className="text-gray-600">El enlace es inválido, ha expirado o ya fue utilizado. Por favor, solicita un nuevo enlace de acceso.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!dashboardData) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600">No hay datos disponibles para mostrar.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const sortedProducts = [...dashboardData.topProductos].sort((a, b) => {
+    if (sortBy === 'ventas') return b.vendidos - a.vendidos;
+    if (sortBy === 'stock') return a.stock - b.stock;
+    if (sortBy === 'margen') return b.margen - a.margen;
+    return 0;
+  });
+
+  const filteredMovements = filterMovement === 'todos' 
+    ? dashboardData.movimientos 
+    : dashboardData.movimientos.filter(m => m.tipo.toLowerCase() === filterMovement.toLowerCase());
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div id="dashboard-content" className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8">
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <h1 className="text-3xl font-bold text-emerald-600 flex items-center gap-2">
+                <ShoppingBag className="w-8 h-8" />
+                PosWhatsApp
+              </h1>
+              <p className="text-gray-600 mt-1">Informe del {new Date().toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+            </div>
+            
+            <div className="flex flex-col sm:flex-row gap-3">
+              <select 
+                value={dateRange}
+                onChange={(e) => setDateRange(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                disabled={customDates !== null}
+              >
+                <option value="today">Hoy</option>
+                <option value="week">Esta Semana</option>
+                <option value="month">Este Mes</option>
+                {customDates && <option value="custom">Rango Personalizado</option>}
+              </select>
+              
+              <button 
+                onClick={handleExportPDF}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 justify-center transition-colors"
+              >
+                <Download className="w-5 h-5" />
+                Exportar PDF
+              </button>
+            </div>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-emerald-500">
             <div className="flex items-center justify-between">
@@ -502,10 +549,7 @@ console.log('💰 Ventas obtenidas:', ventas, 'Error:', ventasError);
           </div>
         </div>
 
-        {/* Resto del dashboard igual que antes, pero usando dashboardData en lugar de mockData */}
-        {/* Continúa en el siguiente mensaje... */}
-{/* Gráficos */}
-<div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <div className="bg-white rounded-lg shadow-md p-6">
             <h3 className="text-lg font-bold text-gray-800 mb-4">Ventas vs Compras vs Gastos (Última Semana)</h3>
             <ResponsiveContainer width="100%" height={300}>
@@ -552,7 +596,6 @@ console.log('💰 Ventas obtenidas:', ventas, 'Error:', ventasError);
           </div>
         </div>
 
-        {/* Gráfico de Línea de Tendencia */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <h3 className="text-lg font-bold text-gray-800 mb-4">Ventas Acumuladas</h3>
           <ResponsiveContainer width="100%" height={250}>
@@ -567,7 +610,6 @@ console.log('💰 Ventas obtenidas:', ventas, 'Error:', ventasError);
           </ResponsiveContainer>
         </div>
 
-        {/* Tabla Top Productos */}
         {sortedProducts.length > 0 && (
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
@@ -628,7 +670,6 @@ console.log('💰 Ventas obtenidas:', ventas, 'Error:', ventasError);
           </div>
         )}
 
-        {/* Últimos Movimientos */}
         {filteredMovements.length > 0 && (
           <div className="bg-white rounded-lg shadow-md p-6 mb-6">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
@@ -680,7 +721,6 @@ console.log('💰 Ventas obtenidas:', ventas, 'Error:', ventasError);
           </div>
         )}
 
-        {/* Alertas y Recomendaciones */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
           <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-red-500">
             <div className="flex items-center gap-3 mb-3">
@@ -735,7 +775,6 @@ console.log('💰 Ventas obtenidas:', ventas, 'Error:', ventasError);
           </div>
         </div>
 
-        {/* Indicadores Clave */}
         <div className="bg-white rounded-lg shadow-md p-6">
           <h3 className="text-lg font-bold text-gray-800 mb-4">Indicadores Clave de Rendimiento</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -761,14 +800,13 @@ console.log('💰 Ventas obtenidas:', ventas, 'Error:', ventasError);
           </div>
         </div>
 
-        {/* Footer */}
         <div className="mt-8 text-center text-gray-500 text-sm">
           <p>Dashboard generado automáticamente • PosWhatsApp © 2025</p>
           <p className="mt-1 text-xs">Token: {token.substring(0, 10) + '...'}</p>
         </div>
       </div>
     </div>
-  )
+  );
 };
 
 export default Dashboard;

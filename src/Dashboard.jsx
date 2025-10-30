@@ -79,16 +79,15 @@ const Dashboard = () => {
               console.log('📅 Rango de fechas:', { startDate, endDate }); // ← AGREGAR ESTA LÍNEA
         
               // 1. Obtener ventas
-              const { data: ventas, error: ventasError } = await supabase
-                .from('ventas')
-                .select('*')
-                .eq('tenant_id', tenant_id)
-                .eq('activo', true)
-                .is('deleted_at', null)
-                .gte('created_at', startDate)
-                .lte('created_at', endDate);
-        
-              console.log('💰 Ventas obtenidas:', ventas, 'Error:', ventasError); // ← AGREGAR ESTA LÍNEA
+const { data: ventas, error: ventasError } = await supabase
+.from('ventas')
+.select('*')
+.eq('tenant_id', tenant_id)
+.eq('activo', true)
+.is('deleted_at', null);
+// TEMPORALMENTE QUITAMOS EL FILTRO DE FECHAS PARA VER SI FUNCIONA
+
+console.log('💰 Ventas obtenidas:', ventas, 'Error:', ventasError);
 
               console.log('🔍 Consulta ventas:', {
                 tenant_id,

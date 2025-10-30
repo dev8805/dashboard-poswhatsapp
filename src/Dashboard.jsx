@@ -18,8 +18,8 @@ import {
   Wallet
 } from 'lucide-react';
 import { supabase } from './supabaseClient';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const Dashboard = () => {
   const [token, setToken] = useState('');
@@ -530,7 +530,7 @@ const Dashboard = () => {
     doc.text('Resumen Financiero', 14, yPosition);
     yPosition += 8;
 
-    doc.autoTable({
+    autoTable(doc, {
       startY: yPosition,
       head: [['Concepto', 'Valor']],
       body: [

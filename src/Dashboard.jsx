@@ -90,6 +90,13 @@ const Dashboard = () => {
         
               console.log('💰 Ventas obtenidas:', ventas, 'Error:', ventasError); // ← AGREGAR ESTA LÍNEA
 
+              console.log('🔍 Consulta ventas:', {
+                tenant_id,
+                startDate,
+                endDate,
+                ventasEncontradas: ventas?.length || 0
+              });
+
 
       if (ventasError) throw ventasError;
 

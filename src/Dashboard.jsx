@@ -472,7 +472,13 @@ const Dashboard = () => {
                 <ShoppingBag className="w-8 h-8" />
                 PosWhatsApp
               </h1>
-              <p className="text-gray-600 mt-1">Informe del {new Date().toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+              <p className="text-gray-600 mt-1">
+  {customDates ? 
+    `Informe del ${new Date(customDates.startDate).toLocaleDateString('es-CO', { day: 'numeric', month: 'long' })} al ${new Date(customDates.endDate).toLocaleDateString('es-CO', { day: 'numeric', month: 'long', year: 'numeric' })}` 
+    : 
+    `Informe del ${new Date().toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' })}`
+  }
+</p>
             </div>
             
             <div className="flex flex-col sm:flex-row gap-3">

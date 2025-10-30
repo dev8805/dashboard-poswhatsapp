@@ -12,6 +12,7 @@ const Dashboard = () => {
   const [sortBy, setSortBy] = useState('ventas');
   const [filterMovement, setFilterMovement] = useState('todos');
   const [dashboardData, setDashboardData] = useState(null);
+  const [customDates, setCustomDates] = useState(null);
 
   useEffect(() => {
     const initDashboard = async () => {
@@ -70,13 +71,27 @@ const Dashboard = () => {
   }, []);
 
  
-        const loadDashboardData = async (tenant_id) => {
-            try {
-              console.log('🔍 Cargando datos para tenant_id:', tenant_id); // ← AGREGAR ESTA LÍNEA
-              
-              // Calcular fechas según el rango seleccionado
-              const { startDate, endDate } = getDateRange(dateRange);
-              console.log('📅 Rango de fechas:', { startDate, endDate }); // ← AGREGAR ESTA LÍNEA
+  const loadDashboardData = async (tenant_id, fechaInicioToken = null, fechaFinToken = null) => {
+    try {
+      console.log('🔍 Cargando datos para tenant_id:', tenant_id);
+      
+      // Si hay fechas del token, usarlas; si no, calcular según el rango
+      let startDate, endDate;
+      
+      if (fechaInicioToken && fechaFinToken) {
+        // Usar fechas del token (formato YYYY-MM-DD)
+        startDate = `${fechaInicioToken} 00:00:00`;
+        endDate = `${fechaFinToken} 23:59:59`;
+        console.log('📅 Usando fechas del token:', { startDate, endDate });
+      } else {
+        // Calcular fechas según el rango seleccionado
+        const dateRangeResult = getDateRange(dateRange);
+        startDate = dateRangeResult.startDate;
+        endDate = dateRangeResult.endDate;
+        console.log('📅 Usando rango seleccionado:', { startDate, endDate });
+      }
+  
+      // ... resto del código de loadDashboardData permanece igual
         
               // 1. Obtener ventas
 const { data: ventas, error: ventasError } = await supabase
@@ -429,91 +444,12 @@ console.log('💰 Ventas obtenidas:', ventas, 'Error:', ventasError);
 
   // Recargar datos cuando cambia el rango de fechas
   useEffect(() => {
-    if (tenantId) {
+    if (tenantId && !customDates) {
+      // Solo recargar si NO hay fechas custom del token
       setLoading(true);
       loadDashboardData(tenantId);
     }
   }, [dateRange]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-emerald-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Cargando datos del dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isValidToken) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
-          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Acceso Denegado</h2>
-          <p className="text-gray-600">El enlace es inválido, ha expirado o ya fue utilizado. Por favor, solicita un nuevo enlace de acceso.</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!dashboardData) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-600">No hay datos disponibles para mostrar.</p>
-        </div>
-      </div>
-    );
-  }
-
-  const sortedProducts = [...dashboardData.topProductos].sort((a, b) => {
-    if (sortBy === 'ventas') return b.vendidos - a.vendidos;
-    if (sortBy === 'stock') return a.stock - b.stock;
-    if (sortBy === 'margen') return b.margen - a.margen;
-    return 0;
-  });
-
-  const filteredMovements = filterMovement === 'todos' 
-    ? dashboardData.movimientos 
-    : dashboardData.movimientos.filter(m => m.tipo.toLowerCase() === filterMovement.toLowerCase());
-
-  return (
-    <div className="min-h-screen bg-gray-50">
-      <div id="dashboard-content" className="max-w-7xl mx-auto p-4 md:p-6 lg:p-8">
-        {/* Header */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h1 className="text-3xl font-bold text-emerald-600 flex items-center gap-2">
-                <ShoppingBag className="w-8 h-8" />
-                PosWhatsApp
-              </h1>
-              <p className="text-gray-600 mt-1">Informe del {new Date().toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
-            </div>
-            
-            <div className="flex flex-col sm:flex-row gap-3">
-              <select 
-                value={dateRange}
-                onChange={(e) => setDateRange(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-              >
-                <option value="today">Hoy</option>
-                <option value="week">Esta Semana</option>
-                <option value="month">Este Mes</option>
-              </select>
-              
-              <button 
-                onClick={handleExportPDF}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 justify-center transition-colors"
-              >
-                <Download className="w-5 h-5" />
-                Exportar PDF
-              </button>
-            </div>
-          </div>
-        </div>
 
         {/* Resumen Ejecutivo */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">

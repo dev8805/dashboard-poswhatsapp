@@ -106,16 +106,6 @@ const { data: user, error: userError } = await supabase
       if (tenantError) throw tenantError;
       setTenantInfo(tenant);
 
-      // Cargar información del usuario
-      const { data: user, error: userError } = await supabase
-        .from('usuarios')
-        .select('nombre')
-        .eq('usuario_id', user_id)
-        .single();
-
-      if (userError) throw userError;
-      setUserInfo(user);
-
       // Establecer fecha y hora de generación del reporte
       setReportDate(new Date());
 

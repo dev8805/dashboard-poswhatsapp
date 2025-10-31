@@ -1,11 +1,11 @@
 import { useState, useEffect } from 'react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { DollarSign, ShoppingCart, ShoppingBag, TrendingUp, Download, AlertCircle, CheckCircle, AlertTriangle, Package, Calendar } from 'lucide-react';
+import { DollarSign, ShoppingCart, ShoppingBag, TrendingUp, Download, AlertCircle, CheckCircle, AlertTriangle, Package, X, FileText } from 'lucide-react';
 import { supabase } from './supabaseClient';
 
 const Dashboard = () => {
   const [token, setToken] = useState('');
-  const [isValidToken, setIsValidToken] = useState(null);
+  const [isValidToken, setIsValidToken] = useState(false);
   const [loading, setLoading] = useState(true);
   const [tenantId, setTenantId] = useState(null);
   const [dateRange, setDateRange] = useState('today');
@@ -14,55 +14,13 @@ const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState(null);
   const [customDates, setCustomDates] = useState(null);
   
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  
-  const [currentDateRange, setCurrentDateRange] = useState({ start: '', end: '' });
-
-  // FUNCIONES PARA ZONA HORARIA BOGOTÁ
-  const getStartOfDayInBogota = (dateString) => {
-    const date = new Date(dateString + 'T00:00:00-05:00');
-    return date.toISOString();
-  };
-
-  const getEndOfDayInBogota = (dateString) => {
-    const date = new Date(dateString + 'T23:59:59-05:00');
-    return date.toISOString();
-  };
-
-  const getTodayInBogota = () => {
-    const now = new Date();
-    const bogotaTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Bogota' }));
-    const year = bogotaTime.getFullYear();
-    const month = String(bogotaTime.getMonth() + 1).padStart(2, '0');
-    const day = String(bogotaTime.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-  };
-
-  // CORREGIDO: Formatear fechas correctamente para Bogotá
-  const formatDateToDisplay = (dateString) => {
-    // Si dateString es YYYY-MM-DD, agregar la zona horaria de Bogotá
-    if (dateString && dateString.length === 10) {
-      // Agregar T00:00:00-05:00 para forzar interpretación en Bogotá
-      const date = new Date(dateString + 'T12:00:00-05:00'); // Usar mediodía para evitar cambio de día
-      return date.toLocaleDateString('es-CO', { 
-        timeZone: 'America/Bogota',
-        year: 'numeric', 
-        month: 'long', 
-        day: 'numeric' 
-      });
-    }
-    
-    // Si ya es ISO string completo
-    const date = new Date(dateString);
-    return date.toLocaleDateString('es-CO', { 
-      timeZone: 'America/Bogota',
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    });
-  };
+  // Estados para el modal de cierre
+  const [showCierreModal, setShowCierreModal] = useState(false);
+  const [cierreStep, setCierreStep] = useState(1); // 1 = ingreso, 2 = confirmación
+  const [cajaContada, setCajaContada] = useState('');
+  const [notasCierre, setNotasCierre] = useState('');
+  const [cierreData, setCierreData] = useState(null);
+  const [savingCierre, setSavingCierre] = useState(false);
 
   useEffect(() => {
     const initDashboard = async () => {
@@ -117,53 +75,26 @@ const Dashboard = () => {
 
   const loadDashboardData = async (tenant_id, fechaInicioToken = null, fechaFinToken = null) => {
     try {
-      console.log('🔍 Cargando datos para tenant_id:', tenant_id);
-      
-      let startDateISO, endDateISO, displayStartDate, displayEndDate;
+      let startDate, endDate;
       
       if (fechaInicioToken && fechaFinToken) {
-        startDateISO = getStartOfDayInBogota(fechaInicioToken);
-        endDateISO = getEndOfDayInBogota(fechaFinToken);
-        displayStartDate = fechaInicioToken;
-        displayEndDate = fechaFinToken;
-        console.log('📅 Usando fechas del token:', { startDateISO, endDateISO });
+        startDate = `${fechaInicioToken} 00:00:00`;
+        endDate = `${fechaFinToken} 23:59:59`;
       } else {
         const dateRangeResult = getDateRange(dateRange);
-        startDateISO = dateRangeResult.startDate;
-        endDateISO = dateRangeResult.endDate;
-        displayStartDate = dateRangeResult.displayStart;
-        displayEndDate = dateRangeResult.displayEnd;
-        console.log('📅 Usando rango seleccionado:', dateRange);
+        startDate = dateRangeResult.startDate;
+        endDate = dateRangeResult.endDate;
       }
 
-      console.log('🕐 Fechas ISO para consulta:', { 
-        startDateISO, 
-        endDateISO 
-      });
-      
-      console.log('📅 Fechas para mostrar:', {
-        displayStartDate,
-        displayEndDate
-      });
-
-      // Guardar para el header
-      setCurrentDateRange({ start: displayStartDate, end: displayEndDate });
-
-      // 1. Obtener ventas CON FILTRO DE FECHAS
       const { data: ventas, error: ventasError } = await supabase
         .from('ventas')
         .select('*')
         .eq('tenant_id', tenant_id)
         .eq('activo', true)
-        .is('deleted_at', null)
-        .gte('created_at', startDateISO)
-        .lte('created_at', endDateISO);
-
-      console.log('💰 Ventas obtenidas:', ventas?.length || 0, 'Error:', ventasError);
+        .is('deleted_at', null);
 
       if (ventasError) throw ventasError;
 
-      // 2. Obtener compras
       const { data: compras, error: comprasError } = await supabase
         .from('movimientos_inventario')
         .select('*')
@@ -171,12 +102,11 @@ const Dashboard = () => {
         .eq('tipo', 'entrada')
         .eq('activo', true)
         .is('deleted_at', null)
-        .gte('created_at', startDateISO)
-        .lte('created_at', endDateISO);
+        .gte('created_at', startDate)
+        .lte('created_at', endDate);
 
       if (comprasError) throw comprasError;
 
-      // 3. Obtener consumos
       const { data: consumos, error: consumosError } = await supabase
         .from('movimientos_inventario')
         .select('*')
@@ -184,24 +114,22 @@ const Dashboard = () => {
         .eq('tipo', 'consumo_personal')
         .eq('activo', true)
         .is('deleted_at', null)
-        .gte('created_at', startDateISO)
-        .lte('created_at', endDateISO);
+        .gte('created_at', startDate)
+        .lte('created_at', endDate);
 
       if (consumosError) throw consumosError;
 
-      // 4. Obtener gastos
       const { data: gastos, error: gastosError } = await supabase
         .from('gastos')
         .select('*')
         .eq('tenant_id', tenant_id)
         .eq('activo', true)
         .is('deleted_at', null)
-        .gte('created_at', startDateISO)
-        .lte('created_at', endDateISO);
+        .gte('created_at', startDate)
+        .lte('created_at', endDate);
 
       if (gastosError) throw gastosError;
 
-      // 5. Obtener productos
       const { data: productos, error: productosError } = await supabase
         .from('productos')
         .select('*')
@@ -222,64 +150,33 @@ const Dashboard = () => {
   };
 
   const getDateRange = (range) => {
-    const today = getTodayInBogota();
-    let startDateISO, endDateISO, displayStart, displayEnd;
+    const now = new Date();
+    let fechaInicio, fechaFin;
   
     switch (range) {
       case 'today':
-        startDateISO = getStartOfDayInBogota(today);
-        endDateISO = getEndOfDayInBogota(today);
-        displayStart = today;
-        displayEnd = today;
+        fechaInicio = new Date(now.setHours(0, 0, 0, 0)).toISOString();
+        fechaFin = new Date(now.setHours(23, 59, 59, 999)).toISOString();
         break;
-        
       case 'week':
-        const weekAgoDate = new Date(today);
-        weekAgoDate.setDate(weekAgoDate.getDate() - 7);
-        const weekAgo = weekAgoDate.toISOString().split('T')[0];
-        
-        startDateISO = getStartOfDayInBogota(weekAgo);
-        endDateISO = getEndOfDayInBogota(today);
-        displayStart = weekAgo;
-        displayEnd = today;
+        const weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - 7);
+        fechaInicio = weekStart.toISOString();
+        fechaFin = new Date().toISOString();
         break;
-        
       case 'month':
-        const firstDayOfMonth = today.substring(0, 8) + '01';
-        
-        startDateISO = getStartOfDayInBogota(firstDayOfMonth);
-        endDateISO = getEndOfDayInBogota(today);
-        displayStart = firstDayOfMonth;
-        displayEnd = today;
+        const monthStart = new Date(now);
+        monthStart.setDate(1);
+        monthStart.setHours(0, 0, 0, 0);
+        fechaInicio = monthStart.toISOString();
+        fechaFin = new Date().toISOString();
         break;
-        
-      case 'custom':
-        if (startDate && endDate) {
-          startDateISO = getStartOfDayInBogota(startDate);
-          endDateISO = getEndOfDayInBogota(endDate);
-          displayStart = startDate;
-          displayEnd = endDate;
-        } else {
-          startDateISO = getStartOfDayInBogota(today);
-          endDateISO = getEndOfDayInBogota(today);
-          displayStart = today;
-          displayEnd = today;
-        }
-        break;
-        
       default:
-        startDateISO = getStartOfDayInBogota(today);
-        endDateISO = getEndOfDayInBogota(today);
-        displayStart = today;
-        displayEnd = today;
+        fechaInicio = new Date(now.setHours(0, 0, 0, 0)).toISOString();
+        fechaFin = new Date(now.setHours(23, 59, 59, 999)).toISOString();
     }
   
-    return { 
-      startDate: startDateISO, 
-      endDate: endDateISO,
-      displayStart: displayStart,
-      displayEnd: displayEnd
-    };
+    return { startDate: fechaInicio, endDate: fechaFin };
   };
 
   const processDashboardData = (ventas, compras, consumos, gastos, productos) => {
@@ -451,7 +348,7 @@ const Dashboard = () => {
           producto: item.PRODUCTO || item.producto || 'Producto desconocido',
           cantidad: parseFloat(item.CANTIDAD || 0),
           valor: parseFloat(v.total || 0),
-          fecha: new Date(v.created_at).toLocaleString('es-CO', { timeZone: 'America/Bogota' })
+          fecha: new Date(v.created_at).toLocaleString('es-CO')
         });
       }
     });
@@ -463,7 +360,7 @@ const Dashboard = () => {
         producto: producto?.producto || 'Producto desconocido',
         cantidad: parseFloat(c.cantidad || 0),
         valor: parseFloat(c.costo_total || 0),
-        fecha: new Date(c.created_at).toLocaleString('es-CO', { timeZone: 'America/Bogota' })
+        fecha: new Date(c.created_at).toLocaleString('es-CO')
       });
     });
 
@@ -474,7 +371,7 @@ const Dashboard = () => {
         producto: producto?.producto || 'Producto desconocido',
         cantidad: parseFloat(c.cantidad || 0),
         valor: parseFloat(c.costo_total || 0),
-        fecha: new Date(c.created_at).toLocaleString('es-CO', { timeZone: 'America/Bogota' })
+        fecha: new Date(c.created_at).toLocaleString('es-CO')
       });
     });
 
@@ -483,8 +380,105 @@ const Dashboard = () => {
       .slice(0, 10);
   };
 
-  const handleExportPDF = () => {
-    window.print();
+  // FUNCIONES DE CIERRE
+  const handleAbrirCierre = async () => {
+    // Verificar si ya existe un cierre para este período
+    const { startDate, endDate } = getDateRange(dateRange);
+    
+    const { data: cierreExistente } = await supabase
+      .from('cierres')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('periodo_inicio', startDate)
+      .eq('periodo_fin', endDate)
+      .single();
+
+    if (cierreExistente) {
+      alert('Ya existe un cierre para este período. Seleccione otro rango de fechas.');
+      return;
+    }
+
+    // Calcular datos del cierre
+    const cajaEsperada = dashboardData.resumen.ventas - dashboardData.resumen.compras - (dashboardData.resumen.consumos);
+    
+    // Inventario esperado (suma de todos los productos)
+    const inventarioEsperado = dashboardData.topProductos.reduce((sum, p) => sum + p.stock, 0);
+
+    setCierreData({
+      cajaEsperada,
+      inventarioEsperado,
+      ventasTotal: dashboardData.resumen.ventas,
+      comprasTotal: dashboardData.resumen.compras,
+      consumosTotal: dashboardData.resumen.consumos,
+      utilidadNeta: dashboardData.resumen.utilidad
+    });
+
+    setShowCierreModal(true);
+    setCierreStep(1);
+    setCajaContada('');
+    setNotasCierre('');
+  };
+
+  const handleProcesarCierre = () => {
+    if (!cajaContada || parseFloat(cajaContada) < 0) {
+      alert('Por favor ingrese el dinero en caja');
+      return;
+    }
+
+    setCierreStep(2);
+  };
+
+  const handleGuardarCierre = async () => {
+    setSavingCierre(true);
+    
+    try {
+      const { startDate, endDate } = getDateRange(dateRange);
+      const cajaReal = parseFloat(cajaContada);
+      const diferenciaCaja = cierreData.cajaEsperada - cajaReal;
+      const cuadrado = Math.abs(diferenciaCaja) < 100; // Tolerancia de $100
+
+      const cierreRecord = {
+        tenant_id: tenantId,
+        periodo_inicio: startDate,
+        periodo_fin: endDate,
+        tipo_cierre: dateRange,
+        ventas_total: cierreData.ventasTotal,
+        compras_total: cierreData.comprasTotal,
+        consumo_personal_total: cierreData.consumosTotal,
+        gastos_total: 0,
+        utilidad_neta: cierreData.utilidadNeta,
+        caja_inicial: 0,
+        caja_esperada: cierreData.cajaEsperada,
+        caja_real: cajaReal,
+        diferencia_caja: diferenciaCaja,
+        inventario_esperado: cierreData.inventarioEsperado,
+        inventario_real: cierreData.inventarioEsperado, // Por ahora usamos el esperado
+        diferencia_inventario: 0,
+        cuadrado: cuadrado,
+        notas: notasCierre,
+        created_at: new Date().toISOString()
+      };
+
+      const { data, error } = await supabase
+        .from('cierres')
+        .insert([cierreRecord])
+        .select();
+
+      if (error) throw error;
+
+      alert('✅ Cierre guardado exitosamente');
+      setShowCierreModal(false);
+      
+    } catch (error) {
+      console.error('Error guardando cierre:', error);
+      alert('Error al guardar el cierre: ' + error.message);
+    } finally {
+      setSavingCierre(false);
+    }
+  };
+
+  const handleDescargarPDF = () => {
+    alert('Función de descarga de PDF del cierre - Implementar con jsPDF');
   };
 
   const formatCurrency = (value) => {
@@ -495,58 +489,30 @@ const Dashboard = () => {
     }).format(value);
   };
 
-  const handleDateRangeChange = (value) => {
-    setDateRange(value);
-    if (value !== 'custom') {
-      setShowDatePicker(false);
-    } else {
-      setShowDatePicker(true);
-    }
-  };
-
-  const applyCustomDates = () => {
-    if (startDate && endDate) {
-      console.log('📅 Aplicando fechas personalizadas:', { startDate, endDate });
-      setLoading(true);
-      setShowDatePicker(false);
-      setDateRange('custom');
-      loadDashboardData(tenantId);
-    }
+  const formatDateRange = () => {
+    const { startDate, endDate } = getDateRange(dateRange);
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    const options = { day: '2-digit', month: 'short' };
+    return `${start.toLocaleDateString('es-CO', options).toUpperCase()} - ${end.toLocaleDateString('es-CO', options).toUpperCase()} ${end.getFullYear()}`;
   };
 
   const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
 
   useEffect(() => {
-    if (tenantId && !customDates && dateRange !== 'custom') {
+    if (tenantId && !customDates) {
       setLoading(true);
       loadDashboardData(tenantId);
     }
   }, [dateRange]);
 
-  const sortedProducts = dashboardData?.topProductos ? [...dashboardData.topProductos].sort((a, b) => {
-    switch (sortBy) {
-      case 'ventas':
-        return b.total - a.total;
-      case 'stock':
-        return b.stock - a.stock;
-      case 'margen':
-        return b.margen - a.margen;
-      default:
-        return 0;
-    }
-  }) : [];
-
-  const filteredMovements = dashboardData?.movimientos ? 
-    filterMovement === 'todos' ? dashboardData.movimientos :
-    dashboardData.movimientos.filter(m => m.tipo.toLowerCase() === filterMovement.toLowerCase())
-    : [];
-
-  if (isValidToken === null) {
+  if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-emerald-100 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-emerald-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 font-medium">Verificando acceso...</p>
+          <p className="text-gray-600 text-lg font-medium">Cargando dashboard...</p>
         </div>
       </div>
     );
@@ -554,29 +520,16 @@ const Dashboard = () => {
 
   if (!isValidToken) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-red-50 to-orange-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full">
-          <div className="text-center">
-            <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-800 mb-2">Acceso Denegado</h2>
-            <p className="text-gray-600 mb-4">
-              El token proporcionado es inválido o ha expirado.
-            </p>
-            <p className="text-sm text-gray-500">
-              Por favor, solicita un nuevo enlace de acceso al dashboard.
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-100 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-emerald-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 font-medium">Cargando datos del dashboard...</p>
+      <div className="min-h-screen bg-gradient-to-br from-red-50 to-red-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-xl p-8 max-w-md text-center">
+          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">Acceso Denegado</h2>
+          <p className="text-gray-600 mb-4">
+            El token proporcionado no es válido o ha expirado.
+          </p>
+          <p className="text-sm text-gray-500">
+            Por favor, solicite un nuevo enlace de acceso.
+          </p>
         </div>
       </div>
     );
@@ -584,136 +537,63 @@ const Dashboard = () => {
 
   if (!dashboardData) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-xl p-8 max-w-md w-full text-center">
-          <AlertCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Sin datos</h2>
-          <p className="text-gray-600">No se pudieron cargar los datos del dashboard.</p>
-        </div>
+      <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-emerald-100 flex items-center justify-center">
+        <p className="text-gray-600">No hay datos disponibles</p>
       </div>
     );
   }
 
+  const sortedProducts = [...dashboardData.topProductos].sort((a, b) => {
+    if (sortBy === 'ventas') return b.total - a.total;
+    if (sortBy === 'stock') return b.stock - a.stock;
+    if (sortBy === 'margen') return b.margen - a.margen;
+    return 0;
+  });
+
+  const filteredMovements = dashboardData.movimientos.filter(mov => {
+    if (filterMovement === 'todos') return true;
+    return mov.tipo.toLowerCase() === filterMovement.toLowerCase();
+  });
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-100 p-4 sm:p-6">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-emerald-100 p-4">
       <div className="max-w-7xl mx-auto">
-        {/* Header con Fechas Visibles */}
-        <div className="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-lg shadow-lg p-6 mb-6 text-white">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        {/* Header */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
-              <div className="flex items-center gap-2 mb-2">
-                <ShoppingBag className="w-8 h-8" />
-                <h1 className="text-2xl sm:text-3xl font-bold">Tienda el Castillo</h1>
-              </div>
-              <p className="text-emerald-100 text-sm">Propietario: Alejandro Castillo</p>
-              
-              <div className="flex items-center gap-2 mt-3 bg-white/20 rounded-lg px-4 py-2 inline-block">
-                <Calendar className="w-5 h-5" />
-                <span className="font-semibold text-sm">
-                  {formatDateToDisplay(currentDateRange.start)} - {formatDateToDisplay(currentDateRange.end)}
-                </span>
-              </div>
+              <h1 className="text-3xl font-bold text-gray-800 mb-2">Dashboard POS</h1>
+              <p className="text-gray-600">Análisis de ventas, compras y rendimiento</p>
             </div>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <button
-                onClick={handleExportPDF}
-                className="flex items-center justify-center gap-2 bg-white text-emerald-600 px-6 py-2 rounded-lg font-semibold hover:bg-emerald-50 transition-colors shadow-md"
+            
+            <div className="flex flex-wrap gap-3">
+              <select 
+                value={dateRange}
+                onChange={(e) => setDateRange(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              >
+                <option value="today">Hoy</option>
+                <option value="week">Última Semana</option>
+                <option value="month">Este Mes</option>
+              </select>
+              
+              <button 
+                onClick={handleAbrirCierre}
+                className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-2 font-medium"
+              >
+                <CheckCircle className="w-5 h-5" />
+                Hacer Cierre
+              </button>
+              
+              <button 
+                onClick={() => alert('Exportar PDF - Implementar con jsPDF')}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2 font-medium"
               >
                 <Download className="w-5 h-5" />
                 Exportar PDF
               </button>
             </div>
           </div>
-        </div>
-
-        {/* Selector de Rango de Fechas */}
-        <div className="bg-white rounded-lg shadow-md p-4 mb-6">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-            <label className="text-gray-700 font-medium">Período:</label>
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => handleDateRangeChange('today')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  dateRange === 'today'
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                Hoy
-              </button>
-              <button
-                onClick={() => handleDateRangeChange('week')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  dateRange === 'week'
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                Última Semana
-              </button>
-              <button
-                onClick={() => handleDateRangeChange('month')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  dateRange === 'month'
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                Este Mes
-              </button>
-              <button
-                onClick={() => handleDateRangeChange('custom')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                  dateRange === 'custom'
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
-              >
-                <Calendar className="w-4 h-4" />
-                Personalizado
-              </button>
-            </div>
-          </div>
-
-          {showDatePicker && (
-            <div className="mt-4 p-4 bg-gray-50 rounded-lg border-2 border-emerald-200">
-              <div className="flex flex-col sm:flex-row gap-4 items-end">
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Fecha Inicio
-                  </label>
-                  <input
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                  />
-                </div>
-                <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Fecha Fin
-                  </label>
-                  <input
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                  />
-                </div>
-                <button
-                  onClick={applyCustomDates}
-                  disabled={!startDate || !endDate}
-                  className={`px-6 py-2 rounded-lg font-semibold transition-colors ${
-                    startDate && endDate
-                      ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }`}
-                >
-                  Aplicar
-                </button>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Resumen Ejecutivo */}
@@ -815,219 +695,228 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Gráfico de Línea de Tendencia */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">Ventas Acumuladas</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={dashboardData.tendencia}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="dia" />
-              <YAxis />
-              <Tooltip formatter={(value) => formatCurrency(value)} />
-              <Legend />
-              <Line type="monotone" dataKey="acumulado" stroke="#10b981" strokeWidth={3} name="Ventas Acumuladas" />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Tabla Top Productos */}
-        {sortedProducts.length > 0 && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
-              <h3 className="text-lg font-bold text-gray-800">Top Productos</h3>
-              <select 
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-              >
-                <option value="ventas">Ordenar por Ventas</option>
-                <option value="stock">Ordenar por Stock</option>
-                <option value="margen">Ordenar por Margen</option>
-              </select>
-            </div>
-            
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vendidos</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Margen</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {sortedProducts.map((producto, index) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm text-gray-900">{producto.codigo}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{producto.nombre}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{producto.vendidos}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(producto.total)}</td>
-                      <td className="px-4 py-3 text-sm">
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                          producto.stock < 10 ? 'bg-red-100 text-red-800' : 
-                          producto.stock < 50 ? 'bg-yellow-100 text-yellow-800' : 
-                          'bg-green-100 text-green-800'
-                        }`}>
-                          {Math.round(producto.stock)} und
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                          producto.margen > 30 ? 'bg-green-100 text-green-800' : 
-                          producto.margen > 20 ? 'bg-yellow-100 text-yellow-800' : 
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {producto.margen}%
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* Últimos Movimientos */}
-        {filteredMovements.length > 0 && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
-              <h3 className="text-lg font-bold text-gray-800">Últimos Movimientos</h3>
-              <select 
-                value={filterMovement}
-                onChange={(e) => setFilterMovement(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-              >
-                <option value="todos">Todos los movimientos</option>
-                <option value="venta">Solo Ventas</option>
-                <option value="compra">Solo Compras</option>
-                <option value="consumo">Solo Consumos</option>
-              </select>
-            </div>
-            
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Producto</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cantidad</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha/Hora</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredMovements.map((mov, index) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm">
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                          mov.tipo === 'Venta' ? 'bg-emerald-100 text-emerald-800' : 
-                          mov.tipo === 'Compra' ? 'bg-blue-100 text-blue-800' : 
-                          'bg-amber-100 text-amber-800'
-                        }`}>
-                          {mov.tipo}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{mov.producto}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{Math.round(mov.cantidad * 100) / 100}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(mov.valor)}</td>
-                      <td className="px-4 py-3 text-sm text-gray-500">{mov.fecha}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* Alertas y Recomendaciones */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-red-500">
-            <div className="flex items-center gap-3 mb-3">
-              <AlertCircle className="w-6 h-6 text-red-500" />
-              <h4 className="font-bold text-gray-800">Stock Bajo</h4>
-            </div>
-            {dashboardData.alertas.stockBajo.length > 0 ? (
-              <ul className="space-y-2">
-                {dashboardData.alertas.stockBajo.map((item, index) => (
-                  <li key={index} className="text-sm text-gray-700 flex items-start gap-2">
-                    <span className="text-red-500 mt-1">•</span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-gray-500">No hay productos con stock bajo</p>
-            )}
-          </div>
-
-          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-yellow-500">
-            <div className="flex items-center gap-3 mb-3">
-              <AlertTriangle className="w-6 h-6 text-yellow-500" />
-              <h4 className="font-bold text-gray-800">Sin Movimiento</h4>
-            </div>
-            {dashboardData.alertas.sinMovimiento.length > 0 ? (
-              <ul className="space-y-2">
-                {dashboardData.alertas.sinMovimiento.map((item, index) => (
-                  <li key={index} className="text-sm text-gray-700 flex items-start gap-2">
-                    <span className="text-yellow-500 mt-1">•</span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-gray-500">Todos los productos tienen movimiento</p>
-            )}
-          </div>
-
-          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
-            <div className="flex items-center gap-3 mb-3">
-              <CheckCircle className="w-6 h-6 text-green-500" />
-              <h4 className="font-bold text-gray-800">Más Rentable</h4>
-            </div>
-            <p className="text-sm text-gray-700 mb-3">{dashboardData.alertas.masRentable}</p>
-            {dashboardData.alertas.stockBajo.length > 0 && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                <p className="text-xs font-semibold text-green-800 mb-1">💡 Sugerencia:</p>
-                <p className="text-sm text-green-700">Reponer {dashboardData.alertas.stockBajo[0]}</p>
+        {/* Modal de Cierre */}
+        {showCierreModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              {/* Header del Modal */}
+              <div className="bg-emerald-600 text-white p-6 rounded-t-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-bold">Cierre del Período</h2>
+                    <p className="text-emerald-100 mt-1">{formatDateRange()}</p>
+                  </div>
+                  <button 
+                    onClick={() => setShowCierreModal(false)}
+                    className="text-white hover:bg-emerald-700 p-2 rounded-lg transition-colors"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
               </div>
-            )}
-          </div>
-        </div>
 
-        {/* Indicadores Clave */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">Indicadores Clave de Rendimiento</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-lg p-4">
-              <p className="text-sm text-emerald-700 font-medium mb-1">Ticket Promedio</p>
-              <p className="text-2xl font-bold text-emerald-900">{formatCurrency(dashboardData.kpis.ticketPromedio)}</p>
-            </div>
-            
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4">
-              <p className="text-sm text-blue-700 font-medium mb-1">Mayor Rotación</p>
-              <p className="text-lg font-bold text-blue-900">{dashboardData.kpis.mayorRotacion}</p>
-            </div>
-            
-            <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4">
-              <p className="text-sm text-purple-700 font-medium mb-1">Más Rentable</p>
-              <p className="text-lg font-bold text-purple-900">{dashboardData.kpis.masRentable}</p>
-            </div>
-            
-            <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg p-4">
-              <p className="text-sm text-amber-700 font-medium mb-1">Total Productos</p>
-              <p className="text-2xl font-bold text-amber-900">{dashboardData.topProductos.length}</p>
+              {/* Contenido del Modal */}
+              <div className="p-6">
+                {cierreStep === 1 ? (
+                  // PASO 1: Ingreso de Datos
+                  <div className="space-y-6">
+                    <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+                      <h3 className="font-bold text-emerald-900 mb-3 flex items-center gap-2">
+                        <CheckCircle className="w-5 h-5" />
+                        Valores Esperados (Sistema)
+                      </h3>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div className="bg-white rounded-lg p-4 border border-emerald-200">
+                          <p className="text-sm text-gray-600 mb-1">💰 Caja Esperada</p>
+                          <p className="text-2xl font-bold text-emerald-700">
+                            {formatCurrency(cierreData.cajaEsperada)}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-2">
+                            = Ventas ({formatCurrency(cierreData.ventasTotal)}) - Compras ({formatCurrency(cierreData.comprasTotal)}) - Gastos ({formatCurrency(cierreData.consumosTotal)})
+                          </p>
+                        </div>
+
+                        <div className="bg-white rounded-lg p-4 border border-emerald-200">
+                          <p className="text-sm text-gray-600 mb-1">📦 Inventario Esperado</p>
+                          <p className="text-2xl font-bold text-emerald-700">
+                            {Math.round(cierreData.inventarioEsperado)} und
+                          </p>
+                          <p className="text-xs text-gray-500 mt-2">
+                            Suma de stock de todos los productos
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-2">
+                          💵 Dinero en Caja (Conteo Manual) *
+                        </label>
+                        <input
+                          type="number"
+                          value={cajaContada}
+                          onChange={(e) => setCajaContada(e.target.value)}
+                          placeholder="Ingrese el dinero contado en caja"
+                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-lg"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-2">
+                          📝 Notas / Observaciones (Opcional)
+                        </label>
+                        <textarea
+                          value={notasCierre}
+                          onChange={(e) => setNotasCierre(e.target.value)}
+                          placeholder="Ej: Diferencia por vueltos, gastos no registrados, etc."
+                          rows={3}
+                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3 pt-4">
+                      <button
+                        onClick={() => setShowCierreModal(false)}
+                        className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={handleProcesarCierre}
+                        disabled={!cajaContada || parseFloat(cajaContada) < 0}
+                        className="flex-1 px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-bold disabled:bg-gray-300 disabled:cursor-not-allowed"
+                      >
+                        PROCESAR CIERRE →
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  // PASO 2: Confirmación y Resultados
+                  <div className="space-y-6">
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
+                      <h3 className="text-xl font-bold text-gray-900 mb-6 text-center">
+                        Comparativa: Sistema vs Conteo
+                      </h3>
+
+                      <div className="grid grid-cols-2 gap-6">
+                        {/* COLUMNA IZQUIERDA: SISTEMA */}
+                        <div>
+                          <h4 className="text-center font-bold text-gray-700 mb-4 text-lg">
+                            💻 SISTEMA
+                          </h4>
+                          <div className="space-y-3">
+                            <div className="bg-white rounded-lg p-4 border-2 border-gray-200">
+                              <p className="text-sm text-gray-600 mb-1">Caja Esperada</p>
+                              <p className="text-xl font-bold text-gray-900">
+                                {formatCurrency(cierreData.cajaEsperada)}
+                              </p>
+                            </div>
+                            <div className="bg-white rounded-lg p-4 border-2 border-gray-200">
+                              <p className="text-sm text-gray-600 mb-1">Inventario Esperado</p>
+                              <p className="text-xl font-bold text-gray-900">
+                                {Math.round(cierreData.inventarioEsperado)} und
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* COLUMNA DERECHA: CONTEO */}
+                        <div>
+                          <h4 className="text-center font-bold text-gray-700 mb-4 text-lg">
+                            ✋ CONTEO MANUAL
+                          </h4>
+                          <div className="space-y-3">
+                            <div className={`rounded-lg p-4 border-2 ${
+                              Math.abs(cierreData.cajaEsperada - parseFloat(cajaContada)) < 100
+                                ? 'bg-green-50 border-green-500'
+                                : 'bg-red-50 border-red-500'
+                            }`}>
+                              <p className="text-sm text-gray-600 mb-1">Caja Contada</p>
+                              <p className="text-xl font-bold text-gray-900">
+                                {formatCurrency(parseFloat(cajaContada))}
+                              </p>
+                              {Math.abs(cierreData.cajaEsperada - parseFloat(cajaContada)) >= 100 && (
+                                <p className="text-sm font-bold text-red-600 mt-2">
+                                  Diferencia: {formatCurrency(Math.abs(cierreData.cajaEsperada - parseFloat(cajaContada)))}
+                                </p>
+                              )}
+                            </div>
+                            <div className="bg-green-50 rounded-lg p-4 border-2 border-green-500">
+                              <p className="text-sm text-gray-600 mb-1">Inventario Contado</p>
+                              <p className="text-xl font-bold text-gray-900">
+                                {Math.round(cierreData.inventarioEsperado)} und
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Status Final */}
+                      <div className={`mt-6 rounded-lg p-4 text-center ${
+                        Math.abs(cierreData.cajaEsperada - parseFloat(cajaContada)) < 100
+                          ? 'bg-green-100 border-2 border-green-500'
+                          : 'bg-red-100 border-2 border-red-500'
+                      }`}>
+                        {Math.abs(cierreData.cajaEsperada - parseFloat(cajaContada)) < 100 ? (
+                          <>
+                            <CheckCircle className="w-12 h-12 text-green-600 mx-auto mb-2" />
+                            <p className="text-2xl font-bold text-green-800">✅ CUADRADO</p>
+                            <p className="text-sm text-green-700 mt-1">El cierre está dentro del margen de tolerancia</p>
+                          </>
+                        ) : (
+                          <>
+                            <AlertTriangle className="w-12 h-12 text-red-600 mx-auto mb-2" />
+                            <p className="text-2xl font-bold text-red-800">⚠️ HAY DIFERENCIAS</p>
+                            <p className="text-lg font-bold text-red-700 mt-2">
+                              Diferencia en caja: {formatCurrency(Math.abs(cierreData.cajaEsperada - parseFloat(cajaContada)))}
+                            </p>
+                          </>
+                        )}
+                      </div>
+
+                      {notasCierre && (
+                        <div className="mt-4 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                          <p className="text-sm font-bold text-yellow-900 mb-1">📝 Notas del Cierre:</p>
+                          <p className="text-sm text-yellow-800">{notasCierre}</p>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => setCierreStep(1)}
+                        className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                      >
+                        ← Volver
+                      </button>
+                      <button
+                        onClick={handleDescargarPDF}
+                        className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center gap-2"
+                      >
+                        <FileText className="w-5 h-5" />
+                        Descargar PDF
+                      </button>
+                      <button
+                        onClick={handleGuardarCierre}
+                        disabled={savingCierre}
+                        className="flex-1 px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-bold disabled:bg-gray-300 disabled:cursor-not-allowed"
+                      >
+                        {savingCierre ? 'Guardando...' : 'GUARDAR CIERRE ✓'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Footer */}
         <div className="mt-8 text-center text-gray-500 text-sm">
           <p>Dashboard generado automáticamente • PosWhatsApp © 2025</p>
-          <p className="mt-1 text-xs">Generado: {new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}</p>
         </div>
       </div>
     </div>

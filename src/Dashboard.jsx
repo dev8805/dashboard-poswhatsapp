@@ -54,7 +54,7 @@ const Dashboard = () => {
       // Validar token en Supabase
       const { data: tokenData, error } = await supabase
         .from('form_tokens')
-        .select('tenant_id, user_id, expires_at, usos')
+        .select('tenant_id, user_id, expires_at, usos, fecha_inicio, fecha_fin')
         .eq('token', urlToken)
         .eq('tipo_form', 'informe_dashboard')
         .single();
@@ -84,6 +84,15 @@ const Dashboard = () => {
         })
         .eq('token', urlToken);
 
+        // Si el token tiene fechas personalizadas, guardarlas
+if (tokenData.fecha_inicio && tokenData.fecha_fin) {
+    setDateRange('custom');
+    setCustomDates({
+      startDate: tokenData.fecha_inicio,
+      endDate: tokenData.fecha_fin
+    });
+  }
+
       setIsValidToken(true);
       setTenantId(tokenData.tenant_id);
 
@@ -91,7 +100,7 @@ const Dashboard = () => {
       await loadTenantAndUserInfo(tokenData.tenant_id, tokenData.user_id);
 
       // Cargar datos del dashboard
-      await loadDashboardData(tokenData.tenant_id);
+      await loadDashboardData(tokenData.tenant_id, tokenData.fecha_inicio, tokenData.fecha_fin);
     };
 
     initDashboard();

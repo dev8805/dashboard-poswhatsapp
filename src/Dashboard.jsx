@@ -5,7 +5,7 @@ import { supabase } from './supabaseClient';
 
 const Dashboard = () => {
   const [token, setToken] = useState('');
-  const [isValidToken, setIsValidToken] = useState(null); // null = no verificado aún, true/false después
+  const [isValidToken, setIsValidToken] = useState(null);
   const [loading, setLoading] = useState(true);
   const [tenantId, setTenantId] = useState(null);
   const [dateRange, setDateRange] = useState('today');
@@ -14,13 +14,59 @@ const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState(null);
   const [customDates, setCustomDates] = useState(null);
   
-  // Estados para el selector de fechas personalizado
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   
-  // Estado para mostrar las fechas consultadas
   const [currentDateRange, setCurrentDateRange] = useState({ start: '', end: '' });
+
+  // ============================================
+  // FUNCIONES PARA MANEJAR ZONA HORARIA BOGOTÁ
+  // ============================================
+  
+  /**
+   * Convierte una fecha en formato YYYY-MM-DD a la hora de inicio del día en Bogotá
+   * y devuelve el ISO string en UTC
+   */
+  const getStartOfDayInBogota = (dateString) => {
+    // Bogotá está en UTC-5
+    const date = new Date(dateString + 'T00:00:00-05:00');
+    return date.toISOString();
+  };
+
+  /**
+   * Convierte una fecha en formato YYYY-MM-DD a la hora de fin del día en Bogotá
+   * y devuelve el ISO string en UTC
+   */
+  const getEndOfDayInBogota = (dateString) => {
+    // Bogotá está en UTC-5
+    const date = new Date(dateString + 'T23:59:59-05:00');
+    return date.toISOString();
+  };
+
+  /**
+   * Obtiene la fecha actual en Bogotá en formato YYYY-MM-DD
+   */
+  const getTodayInBogota = () => {
+    const now = new Date();
+    // Convertir a hora de Bogotá (UTC-5)
+    const bogotaTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Bogota' }));
+    return bogotaTime.toISOString().split('T')[0];
+  };
+
+  /**
+   * Formatea una fecha ISO a formato legible en español (Colombia)
+   */
+  const formatDateToDisplay = (isoString) => {
+    const date = new Date(isoString);
+    // Formatear en zona horaria de Bogotá
+    return date.toLocaleDateString('es-CO', { 
+      timeZone: 'America/Bogota',
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+  };
 
   useEffect(() => {
     const initDashboard = async () => {
@@ -35,7 +81,6 @@ const Dashboard = () => {
 
       setToken(urlToken);
 
-      // Validar token en Supabase
       const { data: tokenData, error } = await supabase
         .from('form_tokens')
         .select('tenant_id, user_id, expires_at, usos')
@@ -49,7 +94,6 @@ const Dashboard = () => {
         return;
       }
 
-      // Verificar si el token no ha expirado
       const now = new Date();
       const expiresAt = new Date(tokenData.expires_at);
       
@@ -59,7 +103,6 @@ const Dashboard = () => {
         return;
       }
 
-      // Actualizar uso del token
       await supabase
         .from('form_tokens')
         .update({ 
@@ -70,8 +113,6 @@ const Dashboard = () => {
 
       setIsValidToken(true);
       setTenantId(tokenData.tenant_id);
-
-      // Cargar datos del dashboard
       await loadDashboardData(tokenData.tenant_id);
     };
 
@@ -82,27 +123,30 @@ const Dashboard = () => {
     try {
       console.log('🔍 Cargando datos para tenant_id:', tenant_id);
       
-      // Si hay fechas del token, usarlas; si no, calcular según el rango
-      let startDate, endDate;
+      let startDateISO, endDateISO;
       
       if (fechaInicioToken && fechaFinToken) {
-        // Usar fechas del token (formato YYYY-MM-DD)
-        startDate = `${fechaInicioToken} 00:00:00`;
-        endDate = `${fechaFinToken} 23:59:59`;
-        console.log('📅 Usando fechas del token:', { startDate, endDate });
+        startDateISO = getStartOfDayInBogota(fechaInicioToken);
+        endDateISO = getEndOfDayInBogota(fechaFinToken);
+        console.log('📅 Usando fechas del token:', { startDateISO, endDateISO });
         setCurrentDateRange({ start: fechaInicioToken, end: fechaFinToken });
       } else {
-        // Calcular fechas según el rango seleccionado
         const dateRangeResult = getDateRange(dateRange);
-        startDate = dateRangeResult.startDate;
-        endDate = dateRangeResult.endDate;
-        console.log('📅 Usando rango seleccionado:', { startDate, endDate });
+        startDateISO = dateRangeResult.startDate;
+        endDateISO = dateRangeResult.endDate;
+        console.log('📅 Usando rango seleccionado:', dateRange);
+        console.log('📅 Fechas ISO:', { startDateISO, endDateISO });
         
-        // Formatear para mostrar en el header
-        const startFormatted = new Date(startDate).toISOString().split('T')[0];
-        const endFormatted = new Date(endDate).toISOString().split('T')[0];
+        // Extraer solo la fecha (YYYY-MM-DD) de las fechas ISO para mostrar
+        const startFormatted = startDateISO.split('T')[0];
+        const endFormatted = endDateISO.split('T')[0];
         setCurrentDateRange({ start: startFormatted, end: endFormatted });
       }
+
+      console.log('🕐 Usando rango seleccionado:', { 
+        startDate: startDateISO, 
+        endDate: endDateISO 
+      });
 
       // 1. Obtener ventas CON FILTRO DE FECHAS
       const { data: ventas, error: ventasError } = await supabase
@@ -111,8 +155,8 @@ const Dashboard = () => {
         .eq('tenant_id', tenant_id)
         .eq('activo', true)
         .is('deleted_at', null)
-        .gte('created_at', startDate)
-        .lte('created_at', endDate);
+        .gte('created_at', startDateISO)
+        .lte('created_at', endDateISO);
 
       console.log('💰 Ventas obtenidas:', ventas?.length || 0, 'Error:', ventasError);
 
@@ -126,8 +170,8 @@ const Dashboard = () => {
         .eq('tipo', 'entrada')
         .eq('activo', true)
         .is('deleted_at', null)
-        .gte('created_at', startDate)
-        .lte('created_at', endDate);
+        .gte('created_at', startDateISO)
+        .lte('created_at', endDateISO);
 
       if (comprasError) throw comprasError;
 
@@ -139,8 +183,8 @@ const Dashboard = () => {
         .eq('tipo', 'consumo_personal')
         .eq('activo', true)
         .is('deleted_at', null)
-        .gte('created_at', startDate)
-        .lte('created_at', endDate);
+        .gte('created_at', startDateISO)
+        .lte('created_at', endDateISO);
 
       if (consumosError) throw consumosError;
 
@@ -151,8 +195,8 @@ const Dashboard = () => {
         .eq('tenant_id', tenant_id)
         .eq('activo', true)
         .is('deleted_at', null)
-        .gte('created_at', startDate)
-        .lte('created_at', endDate);
+        .gte('created_at', startDateISO)
+        .lte('created_at', endDateISO);
 
       if (gastosError) throw gastosError;
 
@@ -166,7 +210,6 @@ const Dashboard = () => {
 
       if (productosError) throw productosError;
 
-      // Procesar datos
       const processedData = processDashboardData(ventas, compras, consumos, gastos, productos);
       setDashboardData(processedData);
       setLoading(false);
@@ -178,55 +221,59 @@ const Dashboard = () => {
   };
 
   const getDateRange = (range) => {
-    const now = new Date();
+    const today = getTodayInBogota();
     let fechaInicio, fechaFin;
   
     switch (range) {
       case 'today':
-        fechaInicio = new Date(now.setHours(0, 0, 0, 0)).toISOString();
-        fechaFin = new Date(now.setHours(23, 59, 59, 999)).toISOString();
+        fechaInicio = getStartOfDayInBogota(today);
+        fechaFin = getEndOfDayInBogota(today);
         break;
+        
       case 'week':
-        const weekStart = new Date(now);
-        weekStart.setDate(now.getDate() - 7);
-        fechaInicio = weekStart.toISOString();
-        fechaFin = new Date().toISOString();
+        // Últimos 7 días desde hoy
+        const weekAgo = new Date(today);
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        const weekAgoString = weekAgo.toISOString().split('T')[0];
+        
+        fechaInicio = getStartOfDayInBogota(weekAgoString);
+        fechaFin = getEndOfDayInBogota(today);
         break;
+        
       case 'month':
-        const monthStart = new Date(now);
-        monthStart.setDate(1);
-        monthStart.setHours(0, 0, 0, 0);
-        fechaInicio = monthStart.toISOString();
-        fechaFin = new Date().toISOString();
+        // Desde el día 1 del mes actual hasta hoy
+        const firstDayOfMonth = today.substring(0, 8) + '01'; // YYYY-MM-01
+        
+        fechaInicio = getStartOfDayInBogota(firstDayOfMonth);
+        fechaFin = getEndOfDayInBogota(today);
         break;
+        
       case 'custom':
-        // Para custom, usar las fechas del estado
         if (startDate && endDate) {
-          fechaInicio = new Date(`${startDate}T00:00:00`).toISOString();
-          fechaFin = new Date(`${endDate}T23:59:59`).toISOString();
+          fechaInicio = getStartOfDayInBogota(startDate);
+          fechaFin = getEndOfDayInBogota(endDate);
         } else {
           // Si no hay fechas custom, usar today
-          fechaInicio = new Date(now.setHours(0, 0, 0, 0)).toISOString();
-          fechaFin = new Date(now.setHours(23, 59, 59, 999)).toISOString();
+          fechaInicio = getStartOfDayInBogota(today);
+          fechaFin = getEndOfDayInBogota(today);
         }
         break;
+        
       default:
-        fechaInicio = new Date(now.setHours(0, 0, 0, 0)).toISOString();
-        fechaFin = new Date(now.setHours(23, 59, 59, 999)).toISOString();
+        fechaInicio = getStartOfDayInBogota(today);
+        fechaFin = getEndOfDayInBogota(today);
     }
   
     return { startDate: fechaInicio, endDate: fechaFin };
   };
 
   const processDashboardData = (ventas, compras, consumos, gastos, productos) => {
-    // Calcular totales
     const totalVentas = ventas.reduce((sum, v) => sum + parseFloat(v.total || 0), 0);
     const totalCompras = compras.reduce((sum, c) => sum + parseFloat(c.costo_total || 0), 0);
     const totalConsumos = consumos.reduce((sum, c) => sum + parseFloat(c.costo_total || 0), 0);
     const totalGastos = gastos.reduce((sum, g) => sum + parseFloat(g.monto || 0), 0);
     const utilidadBruta = totalVentas - totalCompras - totalConsumos;
 
-    // Procesar productos más vendidos
     const productosVendidos = {};
     ventas.forEach(venta => {
       if (venta.items && Array.isArray(venta.items)) {
@@ -246,7 +293,6 @@ const Dashboard = () => {
       }
     });
 
-    // Top 5 productos
     const topProductos = Object.values(productosVendidos)
       .sort((a, b) => b.total - a.total)
       .slice(0, 5)
@@ -263,39 +309,29 @@ const Dashboard = () => {
         };
       });
 
-    // Productos para gráfico de pastel
     const productosChart = topProductos.map(p => ({
       nombre: p.nombre.length > 15 ? p.nombre.substring(0, 15) + '...' : p.nombre,
       valor: p.total,
       porcentaje: Math.round((p.total / totalVentas) * 100)
     }));
 
-    // Alertas de stock bajo
     const stockBajo = productos
       .filter(p => parseFloat(p.stock_actual) < 10)
       .slice(0, 5)
       .map(p => `${p.producto} (${Math.round(p.stock_actual)} und)`);
 
-    // Productos sin movimiento (sin ventas en el período)
     const productosSinMovimiento = productos
       .filter(p => !productosVendidos[p.producto])
       .slice(0, 5)
       .map(p => p.producto);
 
-    // Producto más rentable
     const masRentable = topProductos.length > 0 ? 
       topProductos.reduce((max, p) => p.margen > max.margen ? p : max, topProductos[0]) : null;
 
-    // Ventas por día (últimos 7 días)
     const ventasPorDia = getVentasPorDia(ventas, compras, gastos);
-
-    // Tendencia acumulada
     const tendencia = getTendenciaAcumulada(ventas);
-
-    // Últimos movimientos
     const ultimosMovimientos = getUltimosMovimientos(ventas, compras, consumos, productos);
 
-    // KPIs
     const ticketPromedio = ventas.length > 0 ? totalVentas / ventas.length : 0;
     const productoMayorRotacion = topProductos.length > 0 ? topProductos[0].nombre : 'N/A';
 
@@ -329,7 +365,6 @@ const Dashboard = () => {
     const dias = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
     const ventasPorDia = {};
 
-    // Inicializar últimos 7 días
     for (let i = 6; i >= 0; i--) {
       const fecha = new Date();
       fecha.setDate(fecha.getDate() - i);
@@ -337,7 +372,6 @@ const Dashboard = () => {
       ventasPorDia[dia] = { dia, ventas: 0, compras: 0, gastos: 0 };
     }
 
-    // Agregar ventas
     ventas.forEach(v => {
       const fecha = new Date(v.created_at);
       const dia = dias[fecha.getDay()];
@@ -346,7 +380,6 @@ const Dashboard = () => {
       }
     });
 
-    // Agregar compras
     compras.forEach(c => {
       const fecha = new Date(c.created_at);
       const dia = dias[fecha.getDay()];
@@ -355,7 +388,6 @@ const Dashboard = () => {
       }
     });
 
-    // Agregar gastos
     gastos.forEach(g => {
       const fecha = new Date(g.created_at);
       const dia = dias[fecha.getDay()];
@@ -372,7 +404,6 @@ const Dashboard = () => {
     const ventasPorDia = {};
     let acumulado = 0;
 
-    // Inicializar últimos 7 días
     for (let i = 6; i >= 0; i--) {
       const fecha = new Date();
       fecha.setDate(fecha.getDate() - i);
@@ -380,7 +411,6 @@ const Dashboard = () => {
       ventasPorDia[dia] = 0;
     }
 
-    // Sumar ventas por día
     ventas.forEach(v => {
       const fecha = new Date(v.created_at);
       const dia = dias[fecha.getDay()];
@@ -389,7 +419,6 @@ const Dashboard = () => {
       }
     });
 
-    // Crear tendencia acumulada
     return Object.entries(ventasPorDia).map(([dia, monto]) => {
       acumulado += monto;
       return { dia, acumulado: Math.round(acumulado) };
@@ -399,7 +428,6 @@ const Dashboard = () => {
   const getUltimosMovimientos = (ventas, compras, consumos, productos) => {
     const movimientos = [];
 
-    // Agregar ventas
     ventas.slice(0, 10).forEach(v => {
       if (v.items && v.items.length > 0) {
         const item = v.items[0];
@@ -408,12 +436,11 @@ const Dashboard = () => {
           producto: item.PRODUCTO || item.producto || 'Producto desconocido',
           cantidad: parseFloat(item.CANTIDAD || 0),
           valor: parseFloat(v.total || 0),
-          fecha: new Date(v.created_at).toLocaleString('es-CO')
+          fecha: new Date(v.created_at).toLocaleString('es-CO', { timeZone: 'America/Bogota' })
         });
       }
     });
 
-    // Agregar compras
     compras.slice(0, 5).forEach(c => {
       const producto = productos.find(p => p.producto_id === c.producto_id);
       movimientos.push({
@@ -421,11 +448,10 @@ const Dashboard = () => {
         producto: producto?.producto || 'Producto desconocido',
         cantidad: parseFloat(c.cantidad || 0),
         valor: parseFloat(c.costo_total || 0),
-        fecha: new Date(c.created_at).toLocaleString('es-CO')
+        fecha: new Date(c.created_at).toLocaleString('es-CO', { timeZone: 'America/Bogota' })
       });
     });
 
-    // Agregar consumos
     consumos.slice(0, 5).forEach(c => {
       const producto = productos.find(p => p.producto_id === c.producto_id);
       movimientos.push({
@@ -433,11 +459,10 @@ const Dashboard = () => {
         producto: producto?.producto || 'Producto desconocido',
         cantidad: parseFloat(c.cantidad || 0),
         valor: parseFloat(c.costo_total || 0),
-        fecha: new Date(c.created_at).toLocaleString('es-CO')
+        fecha: new Date(c.created_at).toLocaleString('es-CO', { timeZone: 'America/Bogota' })
       });
     });
 
-    // Ordenar por fecha más reciente
     return movimientos
       .sort((a, b) => new Date(b.fecha) - new Date(a.fecha))
       .slice(0, 10);
@@ -455,15 +480,6 @@ const Dashboard = () => {
     }).format(value);
   };
 
-  const formatDate = (dateString) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('es-CO', { 
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric' 
-    });
-  };
-
   const handleDateRangeChange = (value) => {
     setDateRange(value);
     if (value !== 'custom') {
@@ -475,15 +491,16 @@ const Dashboard = () => {
 
   const applyCustomDates = () => {
     if (startDate && endDate) {
+      console.log('📅 Aplicando fechas personalizadas:', { startDate, endDate });
       setLoading(true);
       setShowDatePicker(false);
+      setDateRange('custom');
       loadDashboardData(tenantId);
     }
   };
 
   const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
 
-  // Recargar datos cuando cambia el rango de fechas
   useEffect(() => {
     if (tenantId && !customDates && dateRange !== 'custom') {
       setLoading(true);
@@ -491,7 +508,6 @@ const Dashboard = () => {
     }
   }, [dateRange]);
 
-  // Productos ordenados
   const sortedProducts = dashboardData?.topProductos ? [...dashboardData.topProductos].sort((a, b) => {
     switch (sortBy) {
       case 'ventas':
@@ -505,13 +521,11 @@ const Dashboard = () => {
     }
   }) : [];
 
-  // Movimientos filtrados
   const filteredMovements = dashboardData?.movimientos ? 
     filterMovement === 'todos' ? dashboardData.movimientos :
     dashboardData.movimientos.filter(m => m.tipo.toLowerCase() === filterMovement.toLowerCase())
     : [];
 
-  // Pantalla de carga o token inválido
   if (isValidToken === null) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-100 flex items-center justify-center">
@@ -568,7 +582,7 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-100 p-4 sm:p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header Mejorado con Fechas Visibles */}
+        {/* Header con Fechas Visibles */}
         <div className="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-lg shadow-lg p-6 mb-6 text-white">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
@@ -582,7 +596,7 @@ const Dashboard = () => {
               <div className="flex items-center gap-2 mt-3 bg-white/20 rounded-lg px-4 py-2 inline-block">
                 <Calendar className="w-5 h-5" />
                 <span className="font-semibold text-sm">
-                  {formatDate(currentDateRange.start)} - {formatDate(currentDateRange.end)}
+                  {formatDateToDisplay(currentDateRange.start)} - {formatDateToDisplay(currentDateRange.end)}
                 </span>
               </div>
             </div>
@@ -598,7 +612,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Selector de Rango de Fechas Mejorado */}
+        {/* Selector de Rango de Fechas */}
         <div className="bg-white rounded-lg shadow-md p-4 mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <label className="text-gray-700 font-medium">Período:</label>
@@ -1000,7 +1014,7 @@ const Dashboard = () => {
         {/* Footer */}
         <div className="mt-8 text-center text-gray-500 text-sm">
           <p>Dashboard generado automáticamente • PosWhatsApp © 2025</p>
-          <p className="mt-1 text-xs">Generado: {new Date().toLocaleString('es-CO')}</p>
+          <p className="mt-1 text-xs">Generado: {new Date().toLocaleString('es-CO', { timeZone: 'America/Bogota' })}</p>
         </div>
       </div>
     </div>

@@ -20,46 +20,42 @@ const Dashboard = () => {
   
   const [currentDateRange, setCurrentDateRange] = useState({ start: '', end: '' });
 
-  // ============================================
-  // FUNCIONES PARA MANEJAR ZONA HORARIA BOGOTÁ
-  // ============================================
-  
-  /**
-   * Convierte una fecha en formato YYYY-MM-DD a la hora de inicio del día en Bogotá
-   * y devuelve el ISO string en UTC
-   */
+  // FUNCIONES PARA ZONA HORARIA BOGOTÁ
   const getStartOfDayInBogota = (dateString) => {
-    // Bogotá está en UTC-5
     const date = new Date(dateString + 'T00:00:00-05:00');
     return date.toISOString();
   };
 
-  /**
-   * Convierte una fecha en formato YYYY-MM-DD a la hora de fin del día en Bogotá
-   * y devuelve el ISO string en UTC
-   */
   const getEndOfDayInBogota = (dateString) => {
-    // Bogotá está en UTC-5
     const date = new Date(dateString + 'T23:59:59-05:00');
     return date.toISOString();
   };
 
-  /**
-   * Obtiene la fecha actual en Bogotá en formato YYYY-MM-DD
-   */
   const getTodayInBogota = () => {
     const now = new Date();
-    // Convertir a hora de Bogotá (UTC-5)
     const bogotaTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Bogota' }));
-    return bogotaTime.toISOString().split('T')[0];
+    const year = bogotaTime.getFullYear();
+    const month = String(bogotaTime.getMonth() + 1).padStart(2, '0');
+    const day = String(bogotaTime.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
-  /**
-   * Formatea una fecha ISO a formato legible en español (Colombia)
-   */
-  const formatDateToDisplay = (isoString) => {
-    const date = new Date(isoString);
-    // Formatear en zona horaria de Bogotá
+  // CORREGIDO: Formatear fechas correctamente para Bogotá
+  const formatDateToDisplay = (dateString) => {
+    // Si dateString es YYYY-MM-DD, agregar la zona horaria de Bogotá
+    if (dateString && dateString.length === 10) {
+      // Agregar T00:00:00-05:00 para forzar interpretación en Bogotá
+      const date = new Date(dateString + 'T12:00:00-05:00'); // Usar mediodía para evitar cambio de día
+      return date.toLocaleDateString('es-CO', { 
+        timeZone: 'America/Bogota',
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+      });
+    }
+    
+    // Si ya es ISO string completo
+    const date = new Date(dateString);
     return date.toLocaleDateString('es-CO', { 
       timeZone: 'America/Bogota',
       year: 'numeric', 
@@ -123,30 +119,35 @@ const Dashboard = () => {
     try {
       console.log('🔍 Cargando datos para tenant_id:', tenant_id);
       
-      let startDateISO, endDateISO;
+      let startDateISO, endDateISO, displayStartDate, displayEndDate;
       
       if (fechaInicioToken && fechaFinToken) {
         startDateISO = getStartOfDayInBogota(fechaInicioToken);
         endDateISO = getEndOfDayInBogota(fechaFinToken);
+        displayStartDate = fechaInicioToken;
+        displayEndDate = fechaFinToken;
         console.log('📅 Usando fechas del token:', { startDateISO, endDateISO });
-        setCurrentDateRange({ start: fechaInicioToken, end: fechaFinToken });
       } else {
         const dateRangeResult = getDateRange(dateRange);
         startDateISO = dateRangeResult.startDate;
         endDateISO = dateRangeResult.endDate;
+        displayStartDate = dateRangeResult.displayStart;
+        displayEndDate = dateRangeResult.displayEnd;
         console.log('📅 Usando rango seleccionado:', dateRange);
-        console.log('📅 Fechas ISO:', { startDateISO, endDateISO });
-        
-        // Extraer solo la fecha (YYYY-MM-DD) de las fechas ISO para mostrar
-        const startFormatted = startDateISO.split('T')[0];
-        const endFormatted = endDateISO.split('T')[0];
-        setCurrentDateRange({ start: startFormatted, end: endFormatted });
       }
 
-      console.log('🕐 Usando rango seleccionado:', { 
-        startDate: startDateISO, 
-        endDate: endDateISO 
+      console.log('🕐 Fechas ISO para consulta:', { 
+        startDateISO, 
+        endDateISO 
       });
+      
+      console.log('📅 Fechas para mostrar:', {
+        displayStartDate,
+        displayEndDate
+      });
+
+      // Guardar para el header
+      setCurrentDateRange({ start: displayStartDate, end: displayEndDate });
 
       // 1. Obtener ventas CON FILTRO DE FECHAS
       const { data: ventas, error: ventasError } = await supabase
@@ -162,7 +163,7 @@ const Dashboard = () => {
 
       if (ventasError) throw ventasError;
 
-      // 2. Obtener compras (entradas)
+      // 2. Obtener compras
       const { data: compras, error: comprasError } = await supabase
         .from('movimientos_inventario')
         .select('*')
@@ -222,49 +223,63 @@ const Dashboard = () => {
 
   const getDateRange = (range) => {
     const today = getTodayInBogota();
-    let fechaInicio, fechaFin;
+    let startDateISO, endDateISO, displayStart, displayEnd;
   
     switch (range) {
       case 'today':
-        fechaInicio = getStartOfDayInBogota(today);
-        fechaFin = getEndOfDayInBogota(today);
+        startDateISO = getStartOfDayInBogota(today);
+        endDateISO = getEndOfDayInBogota(today);
+        displayStart = today;
+        displayEnd = today;
         break;
         
       case 'week':
-        // Últimos 7 días desde hoy
-        const weekAgo = new Date(today);
-        weekAgo.setDate(weekAgo.getDate() - 7);
-        const weekAgoString = weekAgo.toISOString().split('T')[0];
+        const weekAgoDate = new Date(today);
+        weekAgoDate.setDate(weekAgoDate.getDate() - 7);
+        const weekAgo = weekAgoDate.toISOString().split('T')[0];
         
-        fechaInicio = getStartOfDayInBogota(weekAgoString);
-        fechaFin = getEndOfDayInBogota(today);
+        startDateISO = getStartOfDayInBogota(weekAgo);
+        endDateISO = getEndOfDayInBogota(today);
+        displayStart = weekAgo;
+        displayEnd = today;
         break;
         
       case 'month':
-        // Desde el día 1 del mes actual hasta hoy
-        const firstDayOfMonth = today.substring(0, 8) + '01'; // YYYY-MM-01
+        const firstDayOfMonth = today.substring(0, 8) + '01';
         
-        fechaInicio = getStartOfDayInBogota(firstDayOfMonth);
-        fechaFin = getEndOfDayInBogota(today);
+        startDateISO = getStartOfDayInBogota(firstDayOfMonth);
+        endDateISO = getEndOfDayInBogota(today);
+        displayStart = firstDayOfMonth;
+        displayEnd = today;
         break;
         
       case 'custom':
         if (startDate && endDate) {
-          fechaInicio = getStartOfDayInBogota(startDate);
-          fechaFin = getEndOfDayInBogota(endDate);
+          startDateISO = getStartOfDayInBogota(startDate);
+          endDateISO = getEndOfDayInBogota(endDate);
+          displayStart = startDate;
+          displayEnd = endDate;
         } else {
-          // Si no hay fechas custom, usar today
-          fechaInicio = getStartOfDayInBogota(today);
-          fechaFin = getEndOfDayInBogota(today);
+          startDateISO = getStartOfDayInBogota(today);
+          endDateISO = getEndOfDayInBogota(today);
+          displayStart = today;
+          displayEnd = today;
         }
         break;
         
       default:
-        fechaInicio = getStartOfDayInBogota(today);
-        fechaFin = getEndOfDayInBogota(today);
+        startDateISO = getStartOfDayInBogota(today);
+        endDateISO = getEndOfDayInBogota(today);
+        displayStart = today;
+        displayEnd = today;
     }
   
-    return { startDate: fechaInicio, endDate: fechaFin };
+    return { 
+      startDate: startDateISO, 
+      endDate: endDateISO,
+      displayStart: displayStart,
+      displayEnd: displayEnd
+    };
   };
 
   const processDashboardData = (ventas, compras, consumos, gastos, productos) => {
@@ -592,7 +607,6 @@ const Dashboard = () => {
               </div>
               <p className="text-emerald-100 text-sm">Propietario: Alejandro Castillo</p>
               
-              {/* Mostrar Fechas Consultadas */}
               <div className="flex items-center gap-2 mt-3 bg-white/20 rounded-lg px-4 py-2 inline-block">
                 <Calendar className="w-5 h-5" />
                 <span className="font-semibold text-sm">
@@ -661,7 +675,6 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Date Picker Personalizado */}
           {showDatePicker && (
             <div className="mt-4 p-4 bg-gray-50 rounded-lg border-2 border-emerald-200">
               <div className="flex flex-col sm:flex-row gap-4 items-end">

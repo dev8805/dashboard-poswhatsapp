@@ -336,25 +336,29 @@ const Dashboard = () => {
 
   // NUEVA FUNCIÓN: Obtener etiqueta de rango de fechas
   const getDateRangeLabel = () => {
-    if (!currentDateRange.startDate || !currentDateRange.endDate) return 'Cargando...';
-
-    const start = new Date(currentDateRange.startDate);
-    const end = new Date(currentDateRange.endDate);
-    
+    const now = new Date();
     const months = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC'];
     const monthsFull = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
-
+  
     switch (dateRange) {
       case 'today':
-        return `Hoy, ${start.getDate()} ${months[start.getMonth()]} ${start.getFullYear()}`;
-      case 'week':
-        return `${start.getDate()} - ${end.getDate()} ${months[end.getMonth()]} ${end.getFullYear()}`;
+        return `Hoy, ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+      
+      case 'week': {
+        const weekEnd = new Date(now);
+        const weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - 7);
+        return `${weekStart.getDate()} - ${weekEnd.getDate()} ${months[weekEnd.getMonth()]} ${weekEnd.getFullYear()}`;
+      }
+      
       case 'month':
-        return `TODO ${monthsFull[start.getMonth()]} ${start.getFullYear()}`;
+        return `TODO ${monthsFull[now.getMonth()]} ${now.getFullYear()}`;
+      
       default:
-        return '';
+        return 'Período personalizado';
     }
   };
+  
 
   // FUNCIÓN MEJORADA: Calcular variación porcentual
   const calculateVariation = (current, previous) => {

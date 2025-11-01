@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { DollarSign, ShoppingCart, ShoppingBag, TrendingUp, Download, AlertCircle, CheckCircle, AlertTriangle, Package, Calendar, X, FileText } from 'lucide-react';
+import { DollarSign, ShoppingCart, ShoppingBag, TrendingUp, Download, AlertCircle, CheckCircle, AlertTriangle, Package, Calendar, X, FileText, Edit2, Trash2 } from 'lucide-react';
 import { supabase } from './supabaseClient';
 
 const Dashboard = () => {
@@ -13,6 +13,8 @@ const Dashboard = () => {
   const [filterMovement, setFilterMovement] = useState('todos');
   const [dashboardData, setDashboardData] = useState(null);
   const [customDates, setCustomDates] = useState(null);
+  const [allProductos, setAllProductos] = useState([]);
+  const [gastosDelPeriodo, setGastosDelPeriodo] = useState([]);
   
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [startDate, setStartDate] = useState('');
@@ -20,13 +22,15 @@ const Dashboard = () => {
   
   const [currentDateRange, setCurrentDateRange] = useState({ start: '', end: '' });
 
-  // Estados para el modal de cierre
+  // ✅ CORRECCIÓN 3: Estados para el modal de cierre
   const [showCierreModal, setShowCierreModal] = useState(false);
   const [cierreStep, setCierreStep] = useState(1); // 1 = ingreso, 2 = confirmación
   const [cajaContada, setCajaContada] = useState('');
+  const [mermasConfirmadas, setMermasConfirmadas] = useState('');
   const [notasCierre, setNotasCierre] = useState('');
   const [cierreData, setCierreData] = useState(null);
   const [savingCierre, setSavingCierre] = useState(false);
+  const [stockContadoPorProducto, setStockContadoPorProducto] = useState({});
 
   // FUNCIONES PARA ZONA HORARIA BOGOTÁ
   const getStartOfDayInBogota = (dateString) => {
@@ -48,12 +52,9 @@ const Dashboard = () => {
     return `${year}-${month}-${day}`;
   };
 
-  // CORREGIDO: Formatear fechas correctamente para Bogotá
   const formatDateToDisplay = (dateString) => {
-    // Si dateString es YYYY-MM-DD, agregar la zona horaria de Bogotá
     if (dateString && dateString.length === 10) {
-      // Agregar T00:00:00-05:00 para forzar interpretación en Bogotá
-      const date = new Date(dateString + 'T12:00:00-05:00'); // Usar mediodía para evitar cambio de día
+      const date = new Date(dateString + 'T12:00:00-05:00');
       return date.toLocaleDateString('es-CO', { 
         timeZone: 'America/Bogota',
         year: 'numeric', 
@@ -62,7 +63,6 @@ const Dashboard = () => {
       });
     }
     
-    // Si ya es ISO string completo
     const date = new Date(dateString);
     return date.toLocaleDateString('es-CO', { 
       timeZone: 'America/Bogota',
@@ -134,30 +134,17 @@ const Dashboard = () => {
         endDateISO = getEndOfDayInBogota(fechaFinToken);
         displayStartDate = fechaInicioToken;
         displayEndDate = fechaFinToken;
-        console.log('📅 Usando fechas del token:', { startDateISO, endDateISO });
       } else {
         const dateRangeResult = getDateRange(dateRange);
         startDateISO = dateRangeResult.startDate;
         endDateISO = dateRangeResult.endDate;
         displayStartDate = dateRangeResult.displayStart;
         displayEndDate = dateRangeResult.displayEnd;
-        console.log('📅 Usando rango seleccionado:', dateRange);
       }
 
-      console.log('🕐 Fechas ISO para consulta:', { 
-        startDateISO, 
-        endDateISO 
-      });
-      
-      console.log('📅 Fechas para mostrar:', {
-        displayStartDate,
-        displayEndDate
-      });
-
-      // Guardar para el header
       setCurrentDateRange({ start: displayStartDate, end: displayEndDate });
 
-      // 1. Obtener ventas CON FILTRO DE FECHAS
+      // 1. Obtener ventas
       const { data: ventas, error: ventasError } = await supabase
         .from('ventas')
         .select('*')
@@ -166,8 +153,6 @@ const Dashboard = () => {
         .is('deleted_at', null)
         .gte('created_at', startDateISO)
         .lte('created_at', endDateISO);
-
-      console.log('💰 Ventas obtenidas:', ventas?.length || 0, 'Error:', ventasError);
 
       if (ventasError) throw ventasError;
 
@@ -218,6 +203,9 @@ const Dashboard = () => {
         .is('deleted_at', null);
 
       if (productosError) throw productosError;
+
+      setAllProductos(productos);
+      setGastosDelPeriodo(gastos);
 
       const processedData = processDashboardData(ventas, compras, consumos, gastos, productos);
       setDashboardData(processedData);
@@ -362,7 +350,8 @@ const Dashboard = () => {
       resumen: {
         ventas: totalVentas,
         compras: totalCompras,
-        consumos: totalConsumos + totalGastos,
+        consumos: totalConsumos,
+        gastos: totalGastos,
         utilidad: utilidadBruta
       },
       ventasSemanales: ventasPorDia,
@@ -491,9 +480,9 @@ const Dashboard = () => {
       .slice(0, 10);
   };
 
-  // FUNCIONES DE CIERRE
+  // ✅ CORRECCIÓN 1: FÓRMULA DE CAJA ESPERADA CORREGIDA
   const handleAbrirCierre = async () => {
-    // Verificar si ya existe un cierre para este período
+    // ✅ CORRECCIÓN 10: Validación correcta de cierre duplicado
     const { startDate: start, endDate: end } = getDateRange(dateRange);
     
     const { data: cierreExistente } = await supabase
@@ -502,31 +491,45 @@ const Dashboard = () => {
       .eq('tenant_id', tenantId)
       .gte('created_at', start)
       .lte('created_at', end)
-      .single();
+      .limit(1);
 
-    if (cierreExistente) {
+    if (cierreExistente && cierreExistente.length > 0) {
       alert('Ya existe un cierre para este período. Seleccione otro rango de fechas.');
       return;
     }
 
-    // Calcular datos del cierre
-    const cajaEsperada = dashboardData.resumen.ventas - dashboardData.resumen.compras - (dashboardData.resumen.consumos);
+    // ✅ CORRECCIÓN 1: La fórmula correcta es VENTAS - COMPRAS - GASTOS (no consumos)
+    // El consumo personal NO es dinero físico, afecta la utilidad no la caja
+    const cajaEsperada = dashboardData.resumen.ventas - dashboardData.resumen.compras - dashboardData.resumen.gastos;
     
-    // Inventario esperado (suma de todos los productos)
-    const inventarioEsperado = dashboardData.topProductos.reduce((sum, p) => sum + p.stock, 0);
+    // ✅ CORRECCIÓN 2: Inventario esperado de TODOS los productos, no solo top 5
+    const inventarioEsperado = allProductos.reduce((sum, p) => sum + parseFloat(p.stock_actual || 0), 0);
+
+    // Inicializar stock contado con valores vacíos
+    const stockContadoInicial = {};
+    allProductos.forEach(producto => {
+      stockContadoInicial[producto.producto_id] = '';
+    });
 
     setCierreData({
       cajaEsperada,
       inventarioEsperado,
       ventasTotal: dashboardData.resumen.ventas,
       comprasTotal: dashboardData.resumen.compras,
+      gastosTotal: dashboardData.resumen.gastos,
       consumosTotal: dashboardData.resumen.consumos,
-      utilidadNeta: dashboardData.resumen.utilidad
+      utilidadNeta: dashboardData.resumen.utilidad,
+      periodoCierre: {
+        inicio: currentDateRange.start,
+        fin: currentDateRange.end
+      }
     });
 
+    setStockContadoPorProducto(stockContadoInicial);
     setShowCierreModal(true);
     setCierreStep(1);
     setCajaContada('');
+    setMermasConfirmadas('');
     setNotasCierre('');
   };
 
@@ -536,48 +539,138 @@ const Dashboard = () => {
       return;
     }
 
+    // Validar que se ingresó stock para todos los productos
+    const productosSinStock = allProductos.filter(p => 
+      stockContadoPorProducto[p.producto_id] === '' || 
+      stockContadoPorProducto[p.producto_id] === undefined ||
+      isNaN(parseFloat(stockContadoPorProducto[p.producto_id]))
+    );
+
+    if (productosSinStock.length > 0) {
+      alert(`Por favor ingrese el stock contado para todos los productos. Faltan: ${productosSinStock.map(p => p.producto).join(', ')}`);
+      return;
+    }
+
     setCierreStep(2);
   };
 
+  // ✅ CORRECCIONES 5, 6: Guardar en cierre_inventario y crear movimientos de ajuste
   const handleGuardarCierre = async () => {
     setSavingCierre(true);
     
     try {
-      const { startDate: start, endDate: end } = getDateRange(dateRange);
       const cajaReal = parseFloat(cajaContada);
       const diferenciaCaja = cierreData.cajaEsperada - cajaReal;
-      const cuadrado = Math.abs(diferenciaCaja) < 100; // Tolerancia de $100
+      
+      // ✅ CORRECCIÓN 7: Quitar tolerancia fija
+      const cuadrado = diferenciaCaja === 0;
+
+      // Calcular inventario contado
+      let inventarioContado = 0;
+      allProductos.forEach(producto => {
+        const stockContado = parseFloat(stockContadoPorProducto[producto.producto_id]) || 0;
+        inventarioContado += stockContado;
+      });
 
       const cierreRecord = {
         tenant_id: tenantId,
-        periodo_inicio: currentDateRange.start,
-        periodo_fin: currentDateRange.end,
+        periodo_inicio: cierreData.periodoCierre.inicio,
+        periodo_fin: cierreData.periodoCierre.fin,
         tipo_cierre: dateRange,
         ventas_total: cierreData.ventasTotal,
         compras_total: cierreData.comprasTotal,
         consumo_personal_total: cierreData.consumosTotal,
-        gastos_total: 0,
+        gastos_total: cierreData.gastosTotal,
         utilidad_neta: cierreData.utilidadNeta,
         caja_inicial: 0,
         caja_esperada: cierreData.cajaEsperada,
         caja_real: cajaReal,
         diferencia_caja: diferenciaCaja,
         inventario_esperado: cierreData.inventarioEsperado,
-        inventario_real: cierreData.inventarioEsperado,
-        diferencia_inventario: 0,
+        inventario_real: inventarioContado,
+        diferencia_inventario: inventarioContado - cierreData.inventarioEsperado,
         cuadrado: cuadrado,
+        mermas_confirmadas: parseFloat(mermasConfirmadas) || 0,
         notas: notasCierre,
         created_at: new Date().toISOString()
       };
 
-      const { data, error } = await supabase
+      // 1. Insertar el cierre
+      const { data: cierreInsertado, error: cierreError } = await supabase
         .from('cierres')
         .insert([cierreRecord])
         .select();
 
-      if (error) throw error;
+      if (cierreError) throw cierreError;
 
-      alert('✅ Cierre guardado exitosamente');
+      const cierreId = cierreInsertado[0].id;
+      console.log('✅ Cierre guardado con ID:', cierreId);
+
+      // ✅ CORRECCIÓN 5: Insertar registros en cierre_inventario para CADA PRODUCTO
+      const cierreInventarioRecords = [];
+      
+      for (const producto of allProductos) {
+        const stockContado = parseFloat(stockContadoPorProducto[producto.producto_id]) || 0;
+        const stockEsperado = parseFloat(producto.stock_actual || 0);
+        const diferencia = stockContado - stockEsperado;
+
+        cierreInventarioRecords.push({
+          cierre_id: cierreId,
+          tenant_id: tenantId,
+          producto_id: producto.producto_id,
+          stock_esperado: stockEsperado,
+          stock_contado: stockContado,
+          diferencia: diferencia,
+          mermas: diferencia < 0 ? Math.abs(diferencia) : 0,
+          created_at: new Date().toISOString()
+        });
+      }
+
+      if (cierreInventarioRecords.length > 0) {
+        const { error: inventarioError } = await supabase
+          .from('cierre_inventario')
+          .insert(cierreInventarioRecords);
+
+        if (inventarioError) throw inventarioError;
+        console.log('✅ Registros de cierre_inventario insertados:', cierreInventarioRecords.length);
+      }
+
+      // ✅ CORRECCIÓN 6: Crear movimientos de ajuste automáticos
+      const movimientosAjuste = [];
+      
+      for (const producto of allProductos) {
+        const stockContado = parseFloat(stockContadoPorProducto[producto.producto_id]) || 0;
+        const stockEsperado = parseFloat(producto.stock_actual || 0);
+        const diferencia = stockContado - stockEsperado;
+
+        if (diferencia !== 0) {
+          movimientosAjuste.push({
+            tenant_id: tenantId,
+            cierre_id: cierreId,
+            producto_id: producto.producto_id,
+            tipo: 'ajuste_inventario',
+            cantidad: Math.abs(diferencia),
+            costo_unitario: producto.costo_unitario || 0,
+            costo_total: Math.abs(diferencia) * (producto.costo_unitario || 0),
+            descripcion: diferencia > 0 
+              ? `Ajuste por cierre: excedente de inventario (+${diferencia} und)`
+              : `Ajuste por cierre: faltante de inventario (${diferencia} und)`,
+            activo: true,
+            created_at: new Date().toISOString()
+          });
+        }
+      }
+
+      if (movimientosAjuste.length > 0) {
+        const { error: movimientosError } = await supabase
+          .from('movimientos_inventario')
+          .insert(movimientosAjuste);
+
+        if (movimientosError) throw movimientosError;
+        console.log('✅ Movimientos de ajuste creados:', movimientosAjuste.length);
+      }
+
+      alert('✅ Cierre guardado exitosamente con todos los ajustes de inventario');
       setShowCierreModal(false);
       
     } catch (error) {
@@ -615,7 +708,6 @@ const Dashboard = () => {
 
   const applyCustomDates = () => {
     if (startDate && endDate) {
-      console.log('📅 Aplicando fechas personalizadas:', { startDate, endDate });
       setLoading(true);
       setShowDatePicker(false);
       setDateRange('custom');
@@ -650,6 +742,16 @@ const Dashboard = () => {
     dashboardData.movimientos.filter(m => m.tipo.toLowerCase() === filterMovement.toLowerCase())
     : [];
 
+  // Calcular totales de gastos por categoría
+  const gastosPorCategoria = {};
+  gastosDelPeriodo.forEach(gasto => {
+    const categoria = gasto.tipo_gasto || 'Sin categoría';
+    if (!gastosPorCategoria[categoria]) {
+      gastosPorCategoria[categoria] = 0;
+    }
+    gastosPorCategoria[categoria] += parseFloat(gasto.monto || 0);
+  });
+
   if (isValidToken === null) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-100 flex items-center justify-center">
@@ -668,12 +770,8 @@ const Dashboard = () => {
           <div className="text-center">
             <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-gray-800 mb-2">Acceso Denegado</h2>
-            <p className="text-gray-600 mb-4">
-              El token proporcionado es inválido o ha expirado.
-            </p>
-            <p className="text-sm text-gray-500">
-              Por favor, solicita un nuevo enlace de acceso al dashboard.
-            </p>
+            <p className="text-gray-600 mb-4">El token proporcionado es inválido o ha expirado.</p>
+            <p className="text-sm text-gray-500">Por favor, solicita un nuevo enlace de acceso al dashboard.</p>
           </div>
         </div>
       </div>
@@ -795,9 +893,7 @@ const Dashboard = () => {
             <div className="mt-4 p-4 bg-gray-50 rounded-lg border-2 border-emerald-200">
               <div className="flex flex-col sm:flex-row gap-4 items-end">
                 <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Fecha Inicio
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Fecha Inicio</label>
                   <input
                     type="date"
                     value={startDate}
@@ -806,9 +902,7 @@ const Dashboard = () => {
                   />
                 </div>
                 <div className="flex-1">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Fecha Fin
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Fecha Fin</label>
                   <input
                     type="date"
                     value={endDate}
@@ -861,8 +955,8 @@ const Dashboard = () => {
           <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-amber-500">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-600 text-sm font-medium">Total Consumos</p>
-                <p className="text-2xl font-bold text-gray-800 mt-1">{formatCurrency(dashboardData.resumen.consumos)}</p>
+                <p className="text-gray-600 text-sm font-medium">Total Gastos</p>
+                <p className="text-2xl font-bold text-gray-800 mt-1">{formatCurrency(dashboardData.resumen.gastos)}</p>
               </div>
               <div className="bg-amber-100 p-3 rounded-full">
                 <Package className="w-6 h-6 text-amber-600" />
@@ -945,6 +1039,35 @@ const Dashboard = () => {
             </LineChart>
           </ResponsiveContainer>
         </div>
+
+        {/* ✅ MEJORA 9: Tabla de Gastos por Categoría */}
+        {Object.keys(gastosPorCategoria).length > 0 && (
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h3 className="text-lg font-bold text-gray-800 mb-4">📊 Desglose de Gastos por Categoría</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoría</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monto</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {Object.entries(gastosPorCategoria).map(([categoria, monto], index) => (
+                    <tr key={index} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{categoria}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(monto)}</td>
+                    </tr>
+                  ))}
+                  <tr className="bg-gray-100 font-bold">
+                    <td className="px-4 py-3 text-sm text-gray-900">TOTAL GASTOS</td>
+                    <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(dashboardData.resumen.gastos)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* Tabla Top Productos */}
         {sortedProducts.length > 0 && (
@@ -1135,15 +1258,15 @@ const Dashboard = () => {
             
             <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg p-4">
               <p className="text-sm text-amber-700 font-medium mb-1">Total Productos</p>
-              <p className="text-2xl font-bold text-amber-900">{dashboardData.topProductos.length}</p>
+              <p className="text-2xl font-bold text-amber-900">{allProductos.length}</p>
             </div>
           </div>
         </div>
 
-        {/* MODAL DE CIERRE */}
+        {/* MODAL DE CIERRE MEJORADO */}
         {showCierreModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="bg-white rounded-lg shadow-2xl max-w-6xl w-full max-h-[95vh] overflow-y-auto">
               {/* Header del Modal */}
               <div className="bg-emerald-600 text-white p-6 rounded-t-lg">
                 <div className="flex items-center justify-between">
@@ -1167,6 +1290,7 @@ const Dashboard = () => {
                 {cierreStep === 1 ? (
                   // PASO 1: Ingreso de Datos
                   <div className="space-y-6">
+                    {/* Valores Esperados */}
                     <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
                       <h3 className="font-bold text-emerald-900 mb-3 flex items-center gap-2">
                         <CheckCircle className="w-5 h-5" />
@@ -1180,7 +1304,7 @@ const Dashboard = () => {
                             {formatCurrency(cierreData.cajaEsperada)}
                           </p>
                           <p className="text-xs text-gray-500 mt-2">
-                            = Ventas ({formatCurrency(cierreData.ventasTotal)}) - Compras ({formatCurrency(cierreData.comprasTotal)}) - Gastos ({formatCurrency(cierreData.consumosTotal)})
+                            = Ventas ({formatCurrency(cierreData.ventasTotal)}) - Compras ({formatCurrency(cierreData.comprasTotal)}) - Gastos ({formatCurrency(cierreData.gastosTotal)})
                           </p>
                         </div>
                         <div className="bg-white rounded-lg p-4 border border-emerald-200">
@@ -1189,12 +1313,13 @@ const Dashboard = () => {
                             {Math.round(cierreData.inventarioEsperado)} und
                           </p>
                           <p className="text-xs text-gray-500 mt-2">
-                            Suma de stock de todos los productos
+                            Suma de stock actual de TODOS los productos
                           </p>
                         </div>
                       </div>
                     </div>
 
+                    {/* Ingreso de Caja */}
                     <div className="space-y-4">
                       <div>
                         <label className="block text-sm font-bold text-gray-700 mb-2">
@@ -1209,6 +1334,20 @@ const Dashboard = () => {
                         />
                       </div>
 
+                      {/* ✅ MEJORA 8: Campo de Mermas */}
+                      <div>
+                        <label className="block text-sm font-bold text-gray-700 mb-2">
+                          📉 Mermas Confirmadas (Opcional)
+                        </label>
+                        <input
+                          type="number"
+                          value={mermasConfirmadas}
+                          onChange={(e) => setMermasConfirmadas(e.target.value)}
+                          placeholder="Ingrese cantidad de productos perdidos/dañados"
+                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                        />
+                      </div>
+
                       <div>
                         <label className="block text-sm font-bold text-gray-700 mb-2">
                           📝 Notas / Observaciones (Opcional)
@@ -1220,6 +1359,63 @@ const Dashboard = () => {
                           rows={3}
                           className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
                         />
+                      </div>
+                    </div>
+
+                    {/* ✅ CORRECCIÓN 4: Tabla para Ingresar Stock Contado */}
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <h4 className="font-bold text-yellow-900 mb-3 flex items-center gap-2">
+                        <Edit2 className="w-5 h-5" />
+                        Ingrese el Stock Contado de Cada Producto *
+                      </h4>
+                      <p className="text-xs text-yellow-800 mb-3">
+                        Cuente físicamente cada producto y escriba la cantidad en la columna "Stock Contado"
+                      </p>
+                      
+                      <div className="overflow-x-auto max-h-96 overflow-y-auto">
+                        <table className="w-full text-sm">
+                          <thead className="bg-yellow-100 sticky top-0">
+                            <tr>
+                              <th className="px-4 py-2 text-left font-semibold text-yellow-900">Código</th>
+                              <th className="px-4 py-2 text-left font-semibold text-yellow-900">Producto</th>
+                              <th className="px-4 py-2 text-center font-semibold text-yellow-900">Stock Esperado</th>
+                              <th className="px-4 py-2 text-center font-semibold text-yellow-900">Stock Contado *</th>
+                              <th className="px-4 py-2 text-center font-semibold text-yellow-900">Diferencia</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white">
+                            {allProductos.map((producto) => {
+                              const stockContado = parseFloat(stockContadoPorProducto[producto.producto_id]) || 0;
+                              const diferencia = stockContado - parseFloat(producto.stock_actual || 0);
+                              return (
+                                <tr key={producto.producto_id} className="border-b border-yellow-200 hover:bg-yellow-50">
+                                  <td className="px-4 py-2 font-semibold text-gray-900">{producto.codigo}</td>
+                                  <td className="px-4 py-2 text-gray-900">{producto.producto}</td>
+                                  <td className="px-4 py-2 text-center text-gray-700">
+                                    {Math.round(parseFloat(producto.stock_actual || 0))} und
+                                  </td>
+                                  <td className="px-4 py-2">
+                                    <input
+                                      type="number"
+                                      value={stockContadoPorProducto[producto.producto_id] || ''}
+                                      onChange={(e) => setStockContadoPorProducto({
+                                        ...stockContadoPorProducto,
+                                        [producto.producto_id]: e.target.value
+                                      })}
+                                      placeholder="0"
+                                      className="w-full px-2 py-1 border border-gray-300 rounded text-center focus:ring-2 focus:ring-yellow-500"
+                                    />
+                                  </td>
+                                  <td className={`px-4 py-2 text-center font-semibold ${
+                                    diferencia > 0 ? 'text-green-600' : diferencia < 0 ? 'text-red-600' : 'text-gray-600'
+                                  }`}>
+                                    {diferencia > 0 ? '+' : ''}{diferencia}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
 
@@ -1244,13 +1440,14 @@ const Dashboard = () => {
                   <div className="space-y-6">
                     <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
                       <h3 className="text-xl font-bold text-gray-900 mb-6 text-center">
-                        Comparativa: Sistema vs Conteo
+                        Resumen del Cierre
                       </h3>
-                      <div className="grid grid-cols-2 gap-6">
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                         {/* COLUMNA IZQUIERDA: SISTEMA */}
                         <div>
                           <h4 className="text-center font-bold text-gray-700 mb-4 text-lg">
-                            💻 SISTEMA
+                            💻 SISTEMA (Esperado)
                           </h4>
                           <div className="space-y-3">
                             <div className="bg-white rounded-lg p-4 border-2 border-gray-200">
@@ -1275,7 +1472,7 @@ const Dashboard = () => {
                           </h4>
                           <div className="space-y-3">
                             <div className={`rounded-lg p-4 border-2 ${
-                              Math.abs(cierreData.cajaEsperada - parseFloat(cajaContada)) < 100
+                              cierreData.cajaEsperada === parseFloat(cajaContada)
                                 ? 'bg-green-50 border-green-500'
                                 : 'bg-red-50 border-red-500'
                             }`}>
@@ -1283,16 +1480,21 @@ const Dashboard = () => {
                               <p className="text-xl font-bold text-gray-900">
                                 {formatCurrency(parseFloat(cajaContada))}
                               </p>
-                              {Math.abs(cierreData.cajaEsperada - parseFloat(cajaContada)) >= 100 && (
+                              {cierreData.cajaEsperada !== parseFloat(cajaContada) && (
                                 <p className="text-sm font-bold text-red-600 mt-2">
                                   Diferencia: {formatCurrency(Math.abs(cierreData.cajaEsperada - parseFloat(cajaContada)))}
                                 </p>
                               )}
                             </div>
-                            <div className="bg-green-50 rounded-lg p-4 border-2 border-green-500">
+                            <div className="bg-white rounded-lg p-4 border-2 border-gray-200">
                               <p className="text-sm text-gray-600 mb-1">Inventario Contado</p>
                               <p className="text-xl font-bold text-gray-900">
-                                {Math.round(cierreData.inventarioEsperado)} und
+                                {Math.round(
+                                  Object.values(stockContadoPorProducto).reduce((sum, val) => {
+                                    const num = parseFloat(val) || 0;
+                                    return sum + num;
+                                  }, 0)
+                                )} und
                               </p>
                             </div>
                           </div>
@@ -1300,16 +1502,16 @@ const Dashboard = () => {
                       </div>
 
                       {/* Status Final */}
-                      <div className={`mt-6 rounded-lg p-4 text-center ${
-                        Math.abs(cierreData.cajaEsperada - parseFloat(cajaContada)) < 100
+                      <div className={`rounded-lg p-4 text-center ${
+                        cierreData.cajaEsperada === parseFloat(cajaContada)
                           ? 'bg-green-100 border-2 border-green-500'
                           : 'bg-red-100 border-2 border-red-500'
                       }`}>
-                        {Math.abs(cierreData.cajaEsperada - parseFloat(cajaContada)) < 100 ? (
+                        {cierreData.cajaEsperada === parseFloat(cajaContada) ? (
                           <>
                             <CheckCircle className="w-12 h-12 text-green-600 mx-auto mb-2" />
                             <p className="text-2xl font-bold text-green-800">✅ CUADRADO</p>
-                            <p className="text-sm text-green-700 mt-1">El cierre está dentro del margen de tolerancia</p>
+                            <p className="text-sm text-green-700 mt-1">La caja está perfectamente balanceada</p>
                           </>
                         ) : (
                           <>

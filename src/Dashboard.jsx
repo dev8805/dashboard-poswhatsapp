@@ -561,7 +561,7 @@ const Dashboard = () => {
     setCierreStep(2);
   };
 
-  // ✅ CORRECCIÓN: tenant_id cambiado a tenantid en handleGuardarCierre
+  // ✅ CORRECCIÓN: Actualizar stock_actual con el stock_contado del cierre
   const handleGuardarCierre = async () => {
     setSavingCierre(true);
     
@@ -580,7 +580,6 @@ const Dashboard = () => {
 
       const cuadrado = diferenciaCaja === 0 && diferenciaInventarioTotal === 0;
 
-      // ✅ CORRECCIÓN: Cambiar tenant_id a tenantid
       const cierreRecord = {
         tenantid: tenantId,
         periodo_inicio: cierreData.periodoCierre.inicio,
@@ -614,7 +613,7 @@ const Dashboard = () => {
       const cierreId = cierreInsertado[0].id;
       console.log('✅ Cierre guardado con ID:', cierreId);
 
-      // ✅ CORRECCIÓN: Cambiar tenant_id a tenantid en cierre_inventario
+      // 2. Guardar detalles en cierre_inventario
       const cierreInventarioRecords = [];
       
       for (const producto of allProductos) {
@@ -646,6 +645,27 @@ const Dashboard = () => {
         if (inventarioError) throw inventarioError;
         console.log('✅ Registros de cierre_inventario insertados:', cierreInventarioRecords.length);
       }
+
+      // ✅ 3. NUEVO: Actualizar stock_actual de cada producto con el stock_contado del cierre
+      // Esto asegura que el próximo período comience con los números correctos
+      for (const producto of allProductos) {
+        const stockContado = parseFloat(stockContadoPorProducto[producto.producto_id]) || 0;
+        
+        const { error: updateError } = await supabase
+          .from('productos')
+          .update({ 
+            stock_actual: stockContado 
+          })
+          .eq('producto_id', producto.producto_id)
+          .eq('tenant_id', tenantId);
+
+        if (updateError) {
+          console.error(`Error actualizando stock del producto ${producto.producto_id}:`, updateError);
+          throw updateError;
+        }
+      }
+
+      console.log('✅ Stock de todos los productos actualizado al stock contado');
 
       alert('✅ Cierre guardado exitosamente');
       setShowCierreModal(false);

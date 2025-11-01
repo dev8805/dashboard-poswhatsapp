@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { DollarSign, ShoppingCart, ShoppingBag, TrendingUp, Download, AlertCircle, CheckCircle, AlertTriangle, Package, Calendar, X, FileText, Edit2 } from 'lucide-react';
+import { X, FileText } from 'lucide-react';
 import { supabase } from './supabaseClient';
 
 const Dashboard = () => {
@@ -13,6 +14,12 @@ const Dashboard = () => {
   const [filterMovement, setFilterMovement] = useState('todos');
   const [dashboardData, setDashboardData] = useState(null);
   const [customDates, setCustomDates] = useState(null);
+  const [showCierreModal, setShowCierreModal] = useState(false);
+const [cierreStep, setCierreStep] = useState(1);
+const [cajaContada, setCajaContada] = useState('');
+const [notasCierre, setNotasCierre] = useState('');
+const [cierreData, setCierreData] = useState(null);
+const [savingCierre, setSavingCierre] = useState(false);
   const [allProductos, setAllProductos] = useState([]);
   const [gastosDelPeriodo, setGastosDelPeriodo] = useState([]);
   
@@ -694,6 +701,157 @@ const Dashboard = () => {
     }).format(value);
   };
 
+  const handleAbrirCierre = async () => {
+    const { startDate, endDate } = getDateRange(dateRange);
+    
+    const { data: cierreExistente } = await supabase
+      .from('cierres')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('periodo_inicio', startDate)
+      .eq('periodo_fin', endDate)
+      .single();
+  
+    if (cierreExistente) {
+      alert('Ya existe un cierre para este período. Seleccione otro rango de fechas.');
+      return;
+    }
+  
+    const { data: productos, error: productosError } = await supabase
+      .from('productos')
+      .select('producto_id, codigo, producto, stock_actual, unidad_medida')
+      .eq('tenant_id', tenantId)
+      .eq('activo', true)
+      .is('deleted_at', null)
+      .order('producto', { ascending: true });
+  
+    if (productosError) {
+      console.error('Error cargando productos:', productosError);
+      alert('Error al cargar productos');
+      return;
+    }
+  
+    const cajaEsperada = dashboardData.resumen.ventas - dashboardData.resumen.compras - dashboardData.resumen.consumos;
+    const inventarioEsperado = productos.reduce((sum, p) => sum + parseFloat(p.stock_actual || 0), 0);
+  
+    const productosContados = productos.map(p => ({
+      producto_id: p.producto_id,
+      codigo: p.codigo,
+      producto: p.producto,
+      stockEsperado: parseFloat(p.stock_actual || 0),
+      stockContado: parseFloat(p.stock_actual || 0),
+      unidad: p.unidad_medida || 'unidades'
+    }));
+  
+    setCierreData({
+      cajaEsperada,
+      inventarioEsperado,
+      ventasTotal: dashboardData.resumen.ventas,
+      comprasTotal: dashboardData.resumen.compras,
+      consumosTotal: dashboardData.resumen.consumos,
+      utilidadNeta: dashboardData.resumen.utilidad,
+      productosContados
+    });
+  
+    setShowCierreModal(true);
+    setCierreStep(1);
+    setCajaContada('');
+    setNotasCierre('');
+  };
+  
+  const handleProcesarCierre = () => {
+    if (!cajaContada || parseFloat(cajaContada) < 0) {
+      alert('Por favor ingrese el dinero en caja');
+      return;
+    }
+    setCierreStep(2);
+  };
+  
+  const handleStockContadoChange = (producto_id, nuevoStock) => {
+    setCierreData(prev => ({
+      ...prev,
+      productosContados: prev.productosContados.map(p =>
+        p.producto_id === producto_id ? { ...p, stockContado: parseFloat(nuevoStock) || 0 } : p
+      )
+    }));
+  };
+  
+  const handleGuardarCierre = async () => {
+    setSavingCierre(true);
+    
+    try {
+      const { startDate, endDate } = getDateRange(dateRange);
+      const cajaReal = parseFloat(cajaContada);
+      const diferenciaCaja = cierreData.cajaEsperada - cajaReal;
+      const cuadrado = Math.abs(diferenciaCaja) < 100;
+  
+      const inventarioRealTotal = cierreData.productosContados.reduce(
+        (sum, p) => sum + parseFloat(p.stockContado || 0), 0
+      );
+      const diferenciaInventario = cierreData.inventarioEsperado - inventarioRealTotal;
+  
+      const cierreRecord = {
+        tenant_id: tenantId,
+        periodo_inicio: startDate,
+        periodo_fin: endDate,
+        tipo_cierre: dateRange,
+        ventas_total: cierreData.ventasTotal,
+        compras_total: cierreData.comprasTotal,
+        consumo_personal_total: cierreData.consumosTotal,
+        gastos_total: 0,
+        utilidad_neta: cierreData.utilidadNeta,
+        caja_inicial: 0,
+        caja_esperada: cierreData.cajaEsperada,
+        caja_real: cajaReal,
+        diferencia_caja: diferenciaCaja,
+        inventario_esperado: cierreData.inventarioEsperado,
+        inventario_real: inventarioRealTotal,
+        diferencia_inventario: diferenciaInventario,
+        cuadrado: cuadrado,
+        notas: notasCierre,
+        created_at: new Date().toISOString()
+      };
+  
+      const { error } = await supabase
+        .from('cierres')
+        .insert([cierreRecord]);
+  
+      if (error) throw error;
+  
+      const updatePromises = cierreData.productosContados.map(producto => {
+        return supabase
+          .from('productos')
+          .update({ stock_actual: parseFloat(producto.stockContado) })
+          .eq('producto_id', producto.producto_id)
+          .eq('tenant_id', tenantId);
+      });
+  
+      await Promise.all(updatePromises);
+  
+      alert('✅ Cierre guardado exitosamente\n📦 Inventario actualizado');
+      setShowCierreModal(false);
+      await loadDashboardData(tenantId);
+      
+    } catch (error) {
+      console.error('Error guardando cierre:', error);
+      alert('Error al guardar el cierre: ' + error.message);
+    } finally {
+      setSavingCierre(false);
+    }
+  };
+  
+  const handleDescargarPDF = () => {
+    alert('Función de descarga de PDF del cierre - Implementar con jsPDF');
+  };
+  
+  const formatDateRange = () => {
+    const { startDate, endDate } = getDateRange(dateRange);
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const options = { day: '2-digit', month: 'short' };
+    return `${start.toLocaleDateString('es-CO', options).toUpperCase()} - ${end.toLocaleDateString('es-CO', options).toUpperCase()} ${end.getFullYear()}`;
+  };
+
   const handleDateRangeChange = (value) => {
     setDateRange(value);
     if (value !== 'custom') {
@@ -711,6 +869,14 @@ const Dashboard = () => {
       loadDashboardData(tenantId);
     }
   };
+
+  <button 
+  onClick={handleAbrirCierre}
+  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-2 font-medium"
+>
+  <CheckCircle className="w-5 h-5" />
+  Hacer Cierre
+</button>
 
   const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
 
@@ -825,6 +991,281 @@ const Dashboard = () => {
                 <CheckCircle className="w-5 h-5" />
                 Hacer Cierre
               </button>
+
+              {showCierreModal && cierreData && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+    <div className="bg-white rounded-lg shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+      <div className="bg-emerald-600 text-white p-6 rounded-t-lg sticky top-0 z-10">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-bold">Cierre del Período</h2>
+            <p className="text-emerald-100 mt-1">{formatDateRange()}</p>
+          </div>
+          <button 
+            onClick={() => setShowCierreModal(false)}
+            className="text-white hover:bg-emerald-700 p-2 rounded-lg transition-colors"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+      </div>
+
+      <div className="p-6">
+        {cierreStep === 1 ? (
+          <div className="space-y-6">
+            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+              <h3 className="font-bold text-emerald-900 mb-3">Valores Esperados (Sistema)</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-white rounded-lg p-4 border border-emerald-200">
+                  <p className="text-sm text-gray-600 mb-1">💰 Caja Esperada</p>
+                  <p className="text-2xl font-bold text-emerald-700">{formatCurrency(cierreData.cajaEsperada)}</p>
+                  <p className="text-xs text-gray-500 mt-2">
+                    = Ventas - Compras - Gastos
+                  </p>
+                </div>
+                <div className="bg-white rounded-lg p-4 border border-emerald-200">
+                  <p className="text-sm text-gray-600 mb-1">📦 Inventario Esperado</p>
+                  <p className="text-2xl font-bold text-emerald-700">{Math.round(cierreData.inventarioEsperado)} und</p>
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">💵 Dinero en Caja (Conteo Manual) *</label>
+              <input
+                type="number"
+                value={cajaContada}
+                onChange={(e) => setCajaContada(e.target.value)}
+                placeholder="Ingrese el dinero contado"
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">📦 Stock Contado de Cada Producto *</label>
+              <p className="text-xs text-gray-500 mb-3">Cuente físicamente cada producto</p>
+              
+              <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-3 mb-3">
+                <p className="text-sm text-yellow-800">
+                  ⚠️ <strong>Importante:</strong> Los stocks contados se guardarán como el nuevo stock_actual
+                </p>
+              </div>
+
+              <div className="max-h-96 overflow-y-auto border-2 border-gray-200 rounded-lg">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-100 sticky top-0">
+                    <tr>
+                      <th className="px-3 py-2 text-left">Código</th>
+                      <th className="px-3 py-2 text-left">Producto</th>
+                      <th className="px-3 py-2 text-center">Esperado</th>
+                      <th className="px-3 py-2 text-center">Unidad</th>
+                      <th className="px-3 py-2 text-center">Contado *</th>
+                      <th className="px-3 py-2 text-center">Diferencia</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {cierreData.productosContados.map((producto) => {
+                      const diferencia = producto.stockContado - producto.stockEsperado;
+                      return (
+                        <tr key={producto.producto_id} className="hover:bg-gray-50">
+                          <td className="px-3 py-2">{producto.codigo}</td>
+                          <td className="px-3 py-2">{producto.producto}</td>
+                          <td className="px-3 py-2 text-center">{producto.stockEsperado.toFixed(2)}</td>
+                          <td className="px-3 py-2 text-center text-xs">{producto.unidad}</td>
+                          <td className="px-3 py-2">
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={producto.stockContado}
+                              onChange={(e) => handleStockContadoChange(producto.producto_id, e.target.value)}
+                              className="w-full px-2 py-1 border rounded text-center"
+                            />
+                          </td>
+                          <td className={`px-3 py-2 text-center font-semibold ${
+                            diferencia === 0 ? 'text-gray-500' :
+                            diferencia > 0 ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {diferencia > 0 ? '+' : ''}{diferencia.toFixed(2)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">📝 Notas (Opcional)</label>
+              <textarea
+                value={notasCierre}
+                onChange={(e) => setNotasCierre(e.target.value)}
+                placeholder="Ej: Diferencia por vueltos, productos dañados, etc."
+                rows={3}
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg"
+              />
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <button
+                onClick={() => setShowCierreModal(false)}
+                className="flex-1 px-6 py-3 border-2 border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleProcesarCierre}
+                disabled={!cajaContada}
+                className="flex-1 px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:bg-gray-300"
+              >
+                PROCESAR CIERRE →
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
+              <h3 className="text-xl font-bold text-center mb-6">Comparativa: Sistema vs Conteo</h3>
+
+              <div className="mb-6">
+                <h4 className="font-bold mb-3">💰 CAJA</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-white rounded-lg p-4 border-2">
+                    <p className="text-sm text-gray-600">Sistema</p>
+                    <p className="text-xl font-bold">{formatCurrency(cierreData.cajaEsperada)}</p>
+                  </div>
+                  <div className={`rounded-lg p-4 border-2 ${
+                    Math.abs(cierreData.cajaEsperada - parseFloat(cajaContada)) < 100
+                      ? 'bg-green-50 border-green-500' : 'bg-red-50 border-red-500'
+                  }`}>
+                    <p className="text-sm text-gray-600">Contado</p>
+                    <p className="text-xl font-bold">{formatCurrency(parseFloat(cajaContada))}</p>
+                    {Math.abs(cierreData.cajaEsperada - parseFloat(cajaContada)) >= 100 && (
+                      <p className="text-sm font-bold text-red-600 mt-2">
+                        Diferencia: {formatCurrency(Math.abs(cierreData.cajaEsperada - parseFloat(cajaContada)))}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mb-6">
+                <h4 className="font-bold mb-3">📦 INVENTARIO</h4>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-white rounded-lg p-4 border-2">
+                    <p className="text-sm text-gray-600">Sistema</p>
+                    <p className="text-xl font-bold">{Math.round(cierreData.inventarioEsperado)} und</p>
+                  </div>
+                  <div className="bg-green-50 rounded-lg p-4 border-2 border-green-500">
+                    <p className="text-sm text-gray-600">Contado</p>
+                    <p className="text-xl font-bold">
+                      {Math.round(cierreData.productosContados.reduce((s, p) => s + parseFloat(p.stockContado || 0), 0))} und
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {(() => {
+                const productosConDif = cierreData.productosContados.filter(
+                  p => Math.abs(p.stockContado - p.stockEsperado) >= 0.01
+                );
+                
+                if (productosConDif.length > 0) {
+                  return (
+                    <div className="mb-6">
+                      <h4 className="font-bold mb-3">⚠️ PRODUCTOS CON DIFERENCIAS ({productosConDif.length})</h4>
+                      <div className="max-h-64 overflow-y-auto border rounded-lg">
+                        <table className="w-full text-sm">
+                          <thead className="bg-gray-100 sticky top-0">
+                            <tr>
+                              <th className="px-3 py-2 text-left">Producto</th>
+                              <th className="px-3 py-2 text-center">Esperado</th>
+                              <th className="px-3 py-2 text-center">Contado</th>
+                              <th className="px-3 py-2 text-center">Diferencia</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y">
+                            {productosConDif.map(p => {
+                              const dif = p.stockContado - p.stockEsperado;
+                              return (
+                                <tr key={p.producto_id}>
+                                  <td className="px-3 py-2">{p.producto}</td>
+                                  <td className="px-3 py-2 text-center">{p.stockEsperado.toFixed(2)}</td>
+                                  <td className="px-3 py-2 text-center font-bold">{p.stockContado.toFixed(2)}</td>
+                                  <td className={`px-3 py-2 text-center font-bold ${
+                                    dif > 0 ? 'text-green-600' : 'text-red-600'
+                                  }`}>
+                                    {dif > 0 ? '+' : ''}{dif.toFixed(2)}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                }
+              })()}
+
+              <div className={`rounded-lg p-4 text-center border-2 ${
+                Math.abs(cierreData.cajaEsperada - parseFloat(cajaContada)) < 100
+                  ? 'bg-green-100 border-green-500' : 'bg-red-100 border-red-500'
+              }`}>
+                {Math.abs(cierreData.cajaEsperada - parseFloat(cajaContada)) < 100 ? (
+                  <>
+                    <CheckCircle className="w-12 h-12 text-green-600 mx-auto mb-2" />
+                    <p className="text-2xl font-bold text-green-800">✅ CUADRADO</p>
+                  </>
+                ) : (
+                  <>
+                    <AlertTriangle className="w-12 h-12 text-red-600 mx-auto mb-2" />
+                    <p className="text-2xl font-bold text-red-800">⚠️ HAY DIFERENCIAS</p>
+                    <p className="text-lg font-bold text-red-700 mt-2">
+                      {formatCurrency(Math.abs(cierreData.cajaEsperada - parseFloat(cajaContada)))}
+                    </p>
+                  </>
+                )}
+              </div>
+
+              <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm font-bold text-blue-900 mb-1">💾 Al guardar:</p>
+                <ul className="text-sm text-blue-800 space-y-1">
+                  <li>• Se actualizará el stock_actual de cada producto</li>
+                  <li>• Se registrará el cierre con todas las diferencias</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setCierreStep(1)}
+                className="flex-1 px-6 py-3 border-2 border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                ← Volver
+              </button>
+              <button
+                onClick={handleDescargarPDF}
+                className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2"
+              >
+                <FileText className="w-5 h-5" />
+                PDF
+              </button>
+              <button
+                onClick={handleGuardarCierre}
+                disabled={savingCierre}
+                className="flex-1 px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:bg-gray-300"
+              >
+                {savingCierre ? 'Guardando...' : 'GUARDAR CIERRE ✓'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+)}
+
               <button
                 onClick={handleExportPDF}
                 className="flex items-center justify-center gap-2 bg-white text-emerald-600 px-6 py-2 rounded-lg font-semibold hover:bg-emerald-50 transition-colors shadow-md"

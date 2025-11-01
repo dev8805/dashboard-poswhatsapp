@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { DollarSign, ShoppingCart, ShoppingBag, TrendingUp, Download, AlertCircle, CheckCircle, AlertTriangle, Package, Calendar, X, FileText, Edit2 } from 'lucide-react';
+import { DollarSign, ShoppingCart, ShoppingBag, TrendingUp, Download, AlertCircle, CheckCircle, AlertTriangle, Package, Calendar, X, FileText, Edit2 , RefreshCw} from 'lucide-react';
 import { supabase } from './supabaseClient';
 
 const Dashboard = () => {
@@ -392,7 +392,7 @@ const Dashboard = () => {
   };
 
   const getVentasPorDia = (ventas, compras, gastos) => {
-    const dias = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    const dias = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
     const ventasPorDia = {};
 
     for (let i = 6; i >= 0; i--) {
@@ -824,6 +824,16 @@ const Dashboard = () => {
                 <CheckCircle className="w-5 h-5" />
                 Hacer Cierre
               </button>
+            <button
+              onClick={() => {
+                setLoading(true);
+                loadDashboardData(tenantId);
+              }}
+              className="flex items-center justify-center gap-2 bg-white text-emerald-600 px-6 py-2 rounded-lg font-semibold hover:bg-emerald-50 transition-colors shadow-md"
+            >
+              <RefreshCw className="w-5 h-5" />
+              Refrescar Datos
+            </button>
               <button
                 onClick={handleExportPDF}
                 className="flex items-center justify-center gap-2 bg-white text-emerald-600 px-6 py-2 rounded-lg font-semibold hover:bg-emerald-50 transition-colors shadow-md"
@@ -1020,20 +1030,6 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Gráfico de Línea de Tendencia */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">Ventas Acumuladas</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={dashboardData.tendencia}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="dia" />
-              <YAxis />
-              <Tooltip formatter={(value) => formatCurrency(value)} />
-              <Legend />
-              <Line type="monotone" dataKey="acumulado" stroke="#10b981" strokeWidth={3} name="Ventas Acumuladas" />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
 
         {/* Tabla de Gastos por Categoría */}
         {Object.keys(gastosPorCategoria).length > 0 && (

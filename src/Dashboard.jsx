@@ -581,7 +581,7 @@ const Dashboard = () => {
       const cuadrado = diferenciaCaja === 0 && diferenciaInventarioTotal === 0;
 
       const cierreRecord = {
-        tenantid: tenantId,
+        tenant_id: tenantId,
         periodo_inicio: cierreData.periodoCierre.inicio,
         periodo_fin: cierreData.periodoCierre.fin,
         tipo_cierre: dateRange,
@@ -623,7 +623,7 @@ const Dashboard = () => {
 
         cierreInventarioRecords.push({
           cierre_id: cierreId,
-          tenantid: tenantId,
+          tenant_id: tenantId,
           producto_id: producto.producto_id,
           stock_inicio_periodo: stockEsperado,
           stock_comprado: 0,

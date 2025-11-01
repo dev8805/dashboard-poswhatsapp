@@ -193,7 +193,7 @@ const Dashboard = () => {
 
       if (gastosError) throw gastosError;
 
-      // ✅ CAMBIO 2: Obtener mermas para sumarlas a gastos
+      // Obtener mermas para sumarlas a gastos
       const { data: mermas, error: mermasError } = await supabase
         .from('movimientos_inventario')
         .select('*')
@@ -290,14 +290,14 @@ const Dashboard = () => {
     };
   };
 
-  // ✅ CAMBIO 2: Incluir mermas en gastos totales
+  // Incluir mermas en gastos totales
   const processDashboardData = (ventas, compras, consumos, gastos, productos, mermas) => {
     const totalVentas = ventas.reduce((sum, v) => sum + parseFloat(v.total || 0), 0);
     const totalCompras = compras.reduce((sum, c) => sum + parseFloat(c.costo_total || 0), 0);
     const totalConsumos = consumos.reduce((sum, c) => sum + parseFloat(c.costo_total || 0), 0);
     const totalGastos = gastos.reduce((sum, g) => sum + parseFloat(g.monto || 0), 0);
     
-    // ✅ CAMBIO 2: Sumar costo de mermas a gastos
+    // Sumar costo de mermas a gastos
     const totalMermas = (mermas || []).reduce((sum, m) => sum + parseFloat(m.costo_total || 0), 0);
     const totalGastosConMermas = totalGastos + totalMermas;
     
@@ -561,7 +561,7 @@ const Dashboard = () => {
     setCierreStep(2);
   };
 
-  // ✅ CAMBIO 5: No crear movimientos de ajuste automáticamente
+  // ✅ CORRECCIÓN: tenant_id cambiado a tenantid en handleGuardarCierre
   const handleGuardarCierre = async () => {
     setSavingCierre(true);
     
@@ -580,8 +580,9 @@ const Dashboard = () => {
 
       const cuadrado = diferenciaCaja === 0 && diferenciaInventarioTotal === 0;
 
+      // ✅ CORRECCIÓN: Cambiar tenant_id a tenantid
       const cierreRecord = {
-        tenant_id: tenantId,
+        tenantid: tenantId,
         periodo_inicio: cierreData.periodoCierre.inicio,
         periodo_fin: cierreData.periodoCierre.fin,
         tipo_cierre: dateRange,
@@ -613,7 +614,7 @@ const Dashboard = () => {
       const cierreId = cierreInsertado[0].id;
       console.log('✅ Cierre guardado con ID:', cierreId);
 
-      // ✅ CAMBIO 5: Guardar en cierre_inventario pero SIN crear movimientos de ajuste
+      // ✅ CORRECCIÓN: Cambiar tenant_id a tenantid en cierre_inventario
       const cierreInventarioRecords = [];
       
       for (const producto of allProductos) {
@@ -623,7 +624,7 @@ const Dashboard = () => {
 
         cierreInventarioRecords.push({
           cierre_id: cierreId,
-          tenant_id: tenantId,
+          tenantid: tenantId,
           producto_id: producto.producto_id,
           stock_inicio_periodo: stockEsperado,
           stock_comprado: 0,
@@ -1265,7 +1266,7 @@ const Dashboard = () => {
                 {cierreStep === 1 ? (
                   // PASO 1: Ingreso de Datos
                   <div className="space-y-6">
-                    {/* ✅ CAMBIO 4: Solo mostrar Caja Esperada y Caja Contada */}
+                    {/* Solo mostrar Caja Esperada */}
                     <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
                       <h3 className="font-bold text-emerald-900 mb-3 flex items-center gap-2">
                         <CheckCircle className="w-5 h-5" />
@@ -1312,7 +1313,7 @@ const Dashboard = () => {
                       </div>
                     </div>
 
-                    {/* ✅ CAMBIO 3: Tabla con columna unidad_peso */}
+                    {/* Tabla con stock por producto */}
                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                       <h4 className="font-bold text-yellow-900 mb-3 flex items-center gap-2">
                         <Edit2 className="w-5 h-5" />
@@ -1338,7 +1339,6 @@ const Dashboard = () => {
                             {allProductos.map((producto) => {
                               const stockContado = parseFloat(stockContadoPorProducto[producto.producto_id]) || 0;
                               const diferencia = stockContado - parseFloat(producto.stock_actual || 0);
-                              // ✅ CAMBIO 3: Usar unidad_peso
                               const unidad = producto.unidad_peso || 'und';
                               return (
                                 <tr key={producto.producto_id} className="border-b border-yellow-200 hover:bg-yellow-50">
@@ -1399,7 +1399,6 @@ const Dashboard = () => {
                         Resumen del Cierre
                       </h3>
                       
-                      {/* ✅ CAMBIO 4: Solo Caja Esperada y Caja Contada */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                         <div>
                           <h4 className="text-center font-bold text-gray-700 mb-4 text-lg">

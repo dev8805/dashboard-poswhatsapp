@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { DollarSign, ShoppingCart, ShoppingBag, TrendingUp, Download, AlertCircle, CheckCircle, AlertTriangle, Package, Calendar, X, FileText, Edit2 } from 'lucide-react';
-import { X, FileText } from 'lucide-react';
 import { supabase } from './supabaseClient';
 
 const Dashboard = () => {
@@ -14,12 +13,6 @@ const Dashboard = () => {
   const [filterMovement, setFilterMovement] = useState('todos');
   const [dashboardData, setDashboardData] = useState(null);
   const [customDates, setCustomDates] = useState(null);
-  const [showCierreModal, setShowCierreModal] = useState(false);
-const [cierreStep, setCierreStep] = useState(1);
-const [cajaContada, setCajaContada] = useState('');
-const [notasCierre, setNotasCierre] = useState('');
-const [cierreData, setCierreData] = useState(null);
-const [savingCierre, setSavingCierre] = useState(false);
   const [allProductos, setAllProductos] = useState([]);
   const [gastosDelPeriodo, setGastosDelPeriodo] = useState([]);
   
@@ -701,157 +694,6 @@ const [savingCierre, setSavingCierre] = useState(false);
     }).format(value);
   };
 
-  const handleAbrirCierre = async () => {
-    const { startDate, endDate } = getDateRange(dateRange);
-    
-    const { data: cierreExistente } = await supabase
-      .from('cierres')
-      .select('*')
-      .eq('tenant_id', tenantId)
-      .eq('periodo_inicio', startDate)
-      .eq('periodo_fin', endDate)
-      .single();
-  
-    if (cierreExistente) {
-      alert('Ya existe un cierre para este período. Seleccione otro rango de fechas.');
-      return;
-    }
-  
-    const { data: productos, error: productosError } = await supabase
-      .from('productos')
-      .select('producto_id, codigo, producto, stock_actual, unidad_medida')
-      .eq('tenant_id', tenantId)
-      .eq('activo', true)
-      .is('deleted_at', null)
-      .order('producto', { ascending: true });
-  
-    if (productosError) {
-      console.error('Error cargando productos:', productosError);
-      alert('Error al cargar productos');
-      return;
-    }
-  
-    const cajaEsperada = dashboardData.resumen.ventas - dashboardData.resumen.compras - dashboardData.resumen.consumos;
-    const inventarioEsperado = productos.reduce((sum, p) => sum + parseFloat(p.stock_actual || 0), 0);
-  
-    const productosContados = productos.map(p => ({
-      producto_id: p.producto_id,
-      codigo: p.codigo,
-      producto: p.producto,
-      stockEsperado: parseFloat(p.stock_actual || 0),
-      stockContado: parseFloat(p.stock_actual || 0),
-      unidad: p.unidad_medida || 'unidades'
-    }));
-  
-    setCierreData({
-      cajaEsperada,
-      inventarioEsperado,
-      ventasTotal: dashboardData.resumen.ventas,
-      comprasTotal: dashboardData.resumen.compras,
-      consumosTotal: dashboardData.resumen.consumos,
-      utilidadNeta: dashboardData.resumen.utilidad,
-      productosContados
-    });
-  
-    setShowCierreModal(true);
-    setCierreStep(1);
-    setCajaContada('');
-    setNotasCierre('');
-  };
-  
-  const handleProcesarCierre = () => {
-    if (!cajaContada || parseFloat(cajaContada) < 0) {
-      alert('Por favor ingrese el dinero en caja');
-      return;
-    }
-    setCierreStep(2);
-  };
-  
-  const handleStockContadoChange = (producto_id, nuevoStock) => {
-    setCierreData(prev => ({
-      ...prev,
-      productosContados: prev.productosContados.map(p =>
-        p.producto_id === producto_id ? { ...p, stockContado: parseFloat(nuevoStock) || 0 } : p
-      )
-    }));
-  };
-  
-  const handleGuardarCierre = async () => {
-    setSavingCierre(true);
-    
-    try {
-      const { startDate, endDate } = getDateRange(dateRange);
-      const cajaReal = parseFloat(cajaContada);
-      const diferenciaCaja = cierreData.cajaEsperada - cajaReal;
-      const cuadrado = Math.abs(diferenciaCaja) < 100;
-  
-      const inventarioRealTotal = cierreData.productosContados.reduce(
-        (sum, p) => sum + parseFloat(p.stockContado || 0), 0
-      );
-      const diferenciaInventario = cierreData.inventarioEsperado - inventarioRealTotal;
-  
-      const cierreRecord = {
-        tenant_id: tenantId,
-        periodo_inicio: startDate,
-        periodo_fin: endDate,
-        tipo_cierre: dateRange,
-        ventas_total: cierreData.ventasTotal,
-        compras_total: cierreData.comprasTotal,
-        consumo_personal_total: cierreData.consumosTotal,
-        gastos_total: 0,
-        utilidad_neta: cierreData.utilidadNeta,
-        caja_inicial: 0,
-        caja_esperada: cierreData.cajaEsperada,
-        caja_real: cajaReal,
-        diferencia_caja: diferenciaCaja,
-        inventario_esperado: cierreData.inventarioEsperado,
-        inventario_real: inventarioRealTotal,
-        diferencia_inventario: diferenciaInventario,
-        cuadrado: cuadrado,
-        notas: notasCierre,
-        created_at: new Date().toISOString()
-      };
-  
-      const { error } = await supabase
-        .from('cierres')
-        .insert([cierreRecord]);
-  
-      if (error) throw error;
-  
-      const updatePromises = cierreData.productosContados.map(producto => {
-        return supabase
-          .from('productos')
-          .update({ stock_actual: parseFloat(producto.stockContado) })
-          .eq('producto_id', producto.producto_id)
-          .eq('tenant_id', tenantId);
-      });
-  
-      await Promise.all(updatePromises);
-  
-      alert('✅ Cierre guardado exitosamente\n📦 Inventario actualizado');
-      setShowCierreModal(false);
-      await loadDashboardData(tenantId);
-      
-    } catch (error) {
-      console.error('Error guardando cierre:', error);
-      alert('Error al guardar el cierre: ' + error.message);
-    } finally {
-      setSavingCierre(false);
-    }
-  };
-  
-  const handleDescargarPDF = () => {
-    alert('Función de descarga de PDF del cierre - Implementar con jsPDF');
-  };
-  
-  const formatDateRange = () => {
-    const { startDate, endDate } = getDateRange(dateRange);
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const options = { day: '2-digit', month: 'short' };
-    return `${start.toLocaleDateString('es-CO', options).toUpperCase()} - ${end.toLocaleDateString('es-CO', options).toUpperCase()} ${end.getFullYear()}`;
-  };
-
   const handleDateRangeChange = (value) => {
     setDateRange(value);
     if (value !== 'custom') {
@@ -869,14 +711,6 @@ const [savingCierre, setSavingCierre] = useState(false);
       loadDashboardData(tenantId);
     }
   };
-
-  <button 
-  onClick={handleAbrirCierre}
-  className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center gap-2 font-medium"
->
-  <CheckCircle className="w-5 h-5" />
-  Hacer Cierre
-</button>
 
   const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
 
@@ -966,7 +800,7 @@ const [savingCierre, setSavingCierre] = useState(false);
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-100 p-4 sm:p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header con Fechas Visibles */}
+        {/* Header */}
         <div className="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-lg shadow-lg p-6 mb-6 text-white">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
@@ -975,7 +809,7 @@ const [savingCierre, setSavingCierre] = useState(false);
                 <h1 className="text-2xl sm:text-3xl font-bold">Tienda el Castillo</h1>
               </div>
               <p className="text-emerald-100 text-sm">Propietario: Alejandro Castillo</p>
-              
+
               <div className="flex items-center gap-2 mt-3 bg-white/20 rounded-lg px-4 py-2 inline-block">
                 <Calendar className="w-5 h-5" />
                 <span className="font-semibold text-sm">
@@ -991,281 +825,6 @@ const [savingCierre, setSavingCierre] = useState(false);
                 <CheckCircle className="w-5 h-5" />
                 Hacer Cierre
               </button>
-
-              {showCierreModal && cierreData && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-    <div className="bg-white rounded-lg shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
-      <div className="bg-emerald-600 text-white p-6 rounded-t-lg sticky top-0 z-10">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold">Cierre del Período</h2>
-            <p className="text-emerald-100 mt-1">{formatDateRange()}</p>
-          </div>
-          <button 
-            onClick={() => setShowCierreModal(false)}
-            className="text-white hover:bg-emerald-700 p-2 rounded-lg transition-colors"
-          >
-            <X className="w-6 h-6" />
-          </button>
-        </div>
-      </div>
-
-      <div className="p-6">
-        {cierreStep === 1 ? (
-          <div className="space-y-6">
-            <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
-              <h3 className="font-bold text-emerald-900 mb-3">Valores Esperados (Sistema)</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-white rounded-lg p-4 border border-emerald-200">
-                  <p className="text-sm text-gray-600 mb-1">💰 Caja Esperada</p>
-                  <p className="text-2xl font-bold text-emerald-700">{formatCurrency(cierreData.cajaEsperada)}</p>
-                  <p className="text-xs text-gray-500 mt-2">
-                    = Ventas - Compras - Gastos
-                  </p>
-                </div>
-                <div className="bg-white rounded-lg p-4 border border-emerald-200">
-                  <p className="text-sm text-gray-600 mb-1">📦 Inventario Esperado</p>
-                  <p className="text-2xl font-bold text-emerald-700">{Math.round(cierreData.inventarioEsperado)} und</p>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">💵 Dinero en Caja (Conteo Manual) *</label>
-              <input
-                type="number"
-                value={cajaContada}
-                onChange={(e) => setCajaContada(e.target.value)}
-                placeholder="Ingrese el dinero contado"
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">📦 Stock Contado de Cada Producto *</label>
-              <p className="text-xs text-gray-500 mb-3">Cuente físicamente cada producto</p>
-              
-              <div className="bg-yellow-50 border border-yellow-300 rounded-lg p-3 mb-3">
-                <p className="text-sm text-yellow-800">
-                  ⚠️ <strong>Importante:</strong> Los stocks contados se guardarán como el nuevo stock_actual
-                </p>
-              </div>
-
-              <div className="max-h-96 overflow-y-auto border-2 border-gray-200 rounded-lg">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-100 sticky top-0">
-                    <tr>
-                      <th className="px-3 py-2 text-left">Código</th>
-                      <th className="px-3 py-2 text-left">Producto</th>
-                      <th className="px-3 py-2 text-center">Esperado</th>
-                      <th className="px-3 py-2 text-center">Unidad</th>
-                      <th className="px-3 py-2 text-center">Contado *</th>
-                      <th className="px-3 py-2 text-center">Diferencia</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {cierreData.productosContados.map((producto) => {
-                      const diferencia = producto.stockContado - producto.stockEsperado;
-                      return (
-                        <tr key={producto.producto_id} className="hover:bg-gray-50">
-                          <td className="px-3 py-2">{producto.codigo}</td>
-                          <td className="px-3 py-2">{producto.producto}</td>
-                          <td className="px-3 py-2 text-center">{producto.stockEsperado.toFixed(2)}</td>
-                          <td className="px-3 py-2 text-center text-xs">{producto.unidad}</td>
-                          <td className="px-3 py-2">
-                            <input
-                              type="number"
-                              step="0.01"
-                              value={producto.stockContado}
-                              onChange={(e) => handleStockContadoChange(producto.producto_id, e.target.value)}
-                              className="w-full px-2 py-1 border rounded text-center"
-                            />
-                          </td>
-                          <td className={`px-3 py-2 text-center font-semibold ${
-                            diferencia === 0 ? 'text-gray-500' :
-                            diferencia > 0 ? 'text-green-600' : 'text-red-600'
-                          }`}>
-                            {diferencia > 0 ? '+' : ''}{diferencia.toFixed(2)}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">📝 Notas (Opcional)</label>
-              <textarea
-                value={notasCierre}
-                onChange={(e) => setNotasCierre(e.target.value)}
-                placeholder="Ej: Diferencia por vueltos, productos dañados, etc."
-                rows={3}
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg"
-              />
-            </div>
-
-            <div className="flex gap-3 pt-4">
-              <button
-                onClick={() => setShowCierreModal(false)}
-                className="flex-1 px-6 py-3 border-2 border-gray-300 rounded-lg hover:bg-gray-50"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleProcesarCierre}
-                disabled={!cajaContada}
-                className="flex-1 px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:bg-gray-300"
-              >
-                PROCESAR CIERRE →
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
-              <h3 className="text-xl font-bold text-center mb-6">Comparativa: Sistema vs Conteo</h3>
-
-              <div className="mb-6">
-                <h4 className="font-bold mb-3">💰 CAJA</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-white rounded-lg p-4 border-2">
-                    <p className="text-sm text-gray-600">Sistema</p>
-                    <p className="text-xl font-bold">{formatCurrency(cierreData.cajaEsperada)}</p>
-                  </div>
-                  <div className={`rounded-lg p-4 border-2 ${
-                    Math.abs(cierreData.cajaEsperada - parseFloat(cajaContada)) < 100
-                      ? 'bg-green-50 border-green-500' : 'bg-red-50 border-red-500'
-                  }`}>
-                    <p className="text-sm text-gray-600">Contado</p>
-                    <p className="text-xl font-bold">{formatCurrency(parseFloat(cajaContada))}</p>
-                    {Math.abs(cierreData.cajaEsperada - parseFloat(cajaContada)) >= 100 && (
-                      <p className="text-sm font-bold text-red-600 mt-2">
-                        Diferencia: {formatCurrency(Math.abs(cierreData.cajaEsperada - parseFloat(cajaContada)))}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div className="mb-6">
-                <h4 className="font-bold mb-3">📦 INVENTARIO</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-white rounded-lg p-4 border-2">
-                    <p className="text-sm text-gray-600">Sistema</p>
-                    <p className="text-xl font-bold">{Math.round(cierreData.inventarioEsperado)} und</p>
-                  </div>
-                  <div className="bg-green-50 rounded-lg p-4 border-2 border-green-500">
-                    <p className="text-sm text-gray-600">Contado</p>
-                    <p className="text-xl font-bold">
-                      {Math.round(cierreData.productosContados.reduce((s, p) => s + parseFloat(p.stockContado || 0), 0))} und
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {(() => {
-                const productosConDif = cierreData.productosContados.filter(
-                  p => Math.abs(p.stockContado - p.stockEsperado) >= 0.01
-                );
-                
-                if (productosConDif.length > 0) {
-                  return (
-                    <div className="mb-6">
-                      <h4 className="font-bold mb-3">⚠️ PRODUCTOS CON DIFERENCIAS ({productosConDif.length})</h4>
-                      <div className="max-h-64 overflow-y-auto border rounded-lg">
-                        <table className="w-full text-sm">
-                          <thead className="bg-gray-100 sticky top-0">
-                            <tr>
-                              <th className="px-3 py-2 text-left">Producto</th>
-                              <th className="px-3 py-2 text-center">Esperado</th>
-                              <th className="px-3 py-2 text-center">Contado</th>
-                              <th className="px-3 py-2 text-center">Diferencia</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y">
-                            {productosConDif.map(p => {
-                              const dif = p.stockContado - p.stockEsperado;
-                              return (
-                                <tr key={p.producto_id}>
-                                  <td className="px-3 py-2">{p.producto}</td>
-                                  <td className="px-3 py-2 text-center">{p.stockEsperado.toFixed(2)}</td>
-                                  <td className="px-3 py-2 text-center font-bold">{p.stockContado.toFixed(2)}</td>
-                                  <td className={`px-3 py-2 text-center font-bold ${
-                                    dif > 0 ? 'text-green-600' : 'text-red-600'
-                                  }`}>
-                                    {dif > 0 ? '+' : ''}{dif.toFixed(2)}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  );
-                }
-              })()}
-
-              <div className={`rounded-lg p-4 text-center border-2 ${
-                Math.abs(cierreData.cajaEsperada - parseFloat(cajaContada)) < 100
-                  ? 'bg-green-100 border-green-500' : 'bg-red-100 border-red-500'
-              }`}>
-                {Math.abs(cierreData.cajaEsperada - parseFloat(cajaContada)) < 100 ? (
-                  <>
-                    <CheckCircle className="w-12 h-12 text-green-600 mx-auto mb-2" />
-                    <p className="text-2xl font-bold text-green-800">✅ CUADRADO</p>
-                  </>
-                ) : (
-                  <>
-                    <AlertTriangle className="w-12 h-12 text-red-600 mx-auto mb-2" />
-                    <p className="text-2xl font-bold text-red-800">⚠️ HAY DIFERENCIAS</p>
-                    <p className="text-lg font-bold text-red-700 mt-2">
-                      {formatCurrency(Math.abs(cierreData.cajaEsperada - parseFloat(cajaContada)))}
-                    </p>
-                  </>
-                )}
-              </div>
-
-              <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="text-sm font-bold text-blue-900 mb-1">💾 Al guardar:</p>
-                <ul className="text-sm text-blue-800 space-y-1">
-                  <li>• Se actualizará el stock_actual de cada producto</li>
-                  <li>• Se registrará el cierre con todas las diferencias</li>
-                </ul>
-              </div>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={() => setCierreStep(1)}
-                className="flex-1 px-6 py-3 border-2 border-gray-300 rounded-lg hover:bg-gray-50"
-              >
-                ← Volver
-              </button>
-              <button
-                onClick={handleDescargarPDF}
-                className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center gap-2"
-              >
-                <FileText className="w-5 h-5" />
-                PDF
-              </button>
-              <button
-                onClick={handleGuardarCierre}
-                disabled={savingCierre}
-                className="flex-1 px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:bg-gray-300"
-              >
-                {savingCierre ? 'Guardando...' : 'GUARDAR CIERRE ✓'}
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  </div>
-)}
-
               <button
                 onClick={handleExportPDF}
                 className="flex items-center justify-center gap-2 bg-white text-emerald-600 px-6 py-2 rounded-lg font-semibold hover:bg-emerald-50 transition-colors shadow-md"
@@ -1277,55 +836,38 @@ const [savingCierre, setSavingCierre] = useState(false);
           </div>
         </div>
 
-        {/* Selector de Rango de Fechas */}
+        {/* Date Range Selector */}
         <div className="bg-white rounded-lg shadow-md p-4 mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <label className="text-gray-700 font-medium">Período:</label>
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => handleDateRangeChange('today')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  dateRange === 'today'
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${dateRange === 'today' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
               >
                 Hoy
               </button>
               <button
                 onClick={() => handleDateRangeChange('week')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  dateRange === 'week'
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${dateRange === 'week' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
               >
                 Última Semana
               </button>
               <button
                 onClick={() => handleDateRangeChange('month')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  dateRange === 'month'
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${dateRange === 'month' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
               >
                 Este Mes
               </button>
               <button
                 onClick={() => handleDateRangeChange('custom')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                  dateRange === 'custom'
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                }`}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${dateRange === 'custom' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
               >
                 <Calendar className="w-4 h-4" />
                 Personalizado
               </button>
             </div>
           </div>
-
           {showDatePicker && (
             <div className="mt-4 p-4 bg-gray-50 rounded-lg border-2 border-emerald-200">
               <div className="flex flex-col sm:flex-row gap-4 items-end">
@@ -1350,11 +892,7 @@ const [savingCierre, setSavingCierre] = useState(false);
                 <button
                   onClick={applyCustomDates}
                   disabled={!startDate || !endDate}
-                  className={`px-6 py-2 rounded-lg font-semibold transition-colors ${
-                    startDate && endDate
-                      ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                  }`}
+                  className={`px-6 py-2 rounded-lg font-semibold transition-colors ${startDate && endDate ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
                 >
                   Aplicar
                 </button>
@@ -1363,7 +901,7 @@ const [savingCierre, setSavingCierre] = useState(false);
           )}
         </div>
 
-        {/* Resumen Ejecutivo */}
+        {/* Summary Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-emerald-500">
             <div className="flex items-center justify-between">
@@ -1414,297 +952,10 @@ const [savingCierre, setSavingCierre] = useState(false);
           </div>
         </div>
 
-        {/* Gráficos */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">Ventas vs Compras vs Gastos (Última Semana)</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={dashboardData.ventasSemanales}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="dia" />
-                <YAxis />
-                <Tooltip formatter={(value) => formatCurrency(value)} />
-                <Legend />
-                <Bar dataKey="ventas" fill="#10b981" name="Ventas" />
-                <Bar dataKey="compras" fill="#3b82f6" name="Compras" />
-                <Bar dataKey="gastos" fill="#f59e0b" name="Gastos" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">Top 5 Productos Más Vendidos</h3>
-            {dashboardData.productosChart.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={dashboardData.productosChart}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ nombre, porcentaje }) => `${nombre} ${porcentaje}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="valor"
-                  >
-                    {dashboardData.productosChart.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value) => formatCurrency(value)} />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-[300px] text-gray-500">
-                No hay datos de productos para mostrar
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Gráfico de Línea de Tendencia */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">Ventas Acumuladas</h3>
-          <ResponsiveContainer width="100%" height={250}>
-            <LineChart data={dashboardData.tendencia}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="dia" />
-              <YAxis />
-              <Tooltip formatter={(value) => formatCurrency(value)} />
-              <Legend />
-              <Line type="monotone" dataKey="acumulado" stroke="#10b981" strokeWidth={3} name="Ventas Acumuladas" />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Tabla de Gastos por Categoría */}
-        {Object.keys(gastosPorCategoria).length > 0 && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">📊 Desglose de Gastos por Categoría</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoría</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monto</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {Object.entries(gastosPorCategoria).map(([categoria, monto], index) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{categoria}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(monto)}</td>
-                    </tr>
-                  ))}
-                  <tr className="bg-gray-100 font-bold">
-                    <td className="px-4 py-3 text-sm text-gray-900">TOTAL GASTOS</td>
-                    <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(dashboardData.resumen.gastos)}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* Tabla Top Productos */}
-        {sortedProducts.length > 0 && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
-              <h3 className="text-lg font-bold text-gray-800">Top Productos</h3>
-              <select 
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-              >
-                <option value="ventas">Ordenar por Ventas</option>
-                <option value="stock">Ordenar por Stock</option>
-                <option value="margen">Ordenar por Margen</option>
-              </select>
-            </div>
-            
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vendidos</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Margen</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {sortedProducts.map((producto, index) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm text-gray-900">{producto.codigo}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{producto.nombre}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{producto.vendidos}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(producto.total)}</td>
-                      <td className="px-4 py-3 text-sm">
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                          producto.stock < 10 ? 'bg-red-100 text-red-800' : 
-                          producto.stock < 50 ? 'bg-yellow-100 text-yellow-800' : 
-                          'bg-green-100 text-green-800'
-                        }`}>
-                          {Math.round(producto.stock)} und
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                          producto.margen > 30 ? 'bg-green-100 text-green-800' : 
-                          producto.margen > 20 ? 'bg-yellow-100 text-yellow-800' : 
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {producto.margen}%
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* Últimos Movimientos */}
-        {filteredMovements.length > 0 && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
-              <h3 className="text-lg font-bold text-gray-800">Últimos Movimientos</h3>
-              <select 
-                value={filterMovement}
-                onChange={(e) => setFilterMovement(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-              >
-                <option value="todos">Todos los movimientos</option>
-                <option value="venta">Solo Ventas</option>
-                <option value="compra">Solo Compras</option>
-                <option value="consumo">Solo Consumos</option>
-              </select>
-            </div>
-            
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Producto</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cantidad</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha/Hora</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredMovements.map((mov, index) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm">
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                          mov.tipo === 'Venta' ? 'bg-emerald-100 text-emerald-800' : 
-                          mov.tipo === 'Compra' ? 'bg-blue-100 text-blue-800' : 
-                          'bg-amber-100 text-amber-800'
-                        }`}>
-                          {mov.tipo}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{mov.producto}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{Math.round(mov.cantidad * 100) / 100}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(mov.valor)}</td>
-                      <td className="px-4 py-3 text-sm text-gray-500">{mov.fecha}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* Alertas y Recomendaciones */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-red-500">
-            <div className="flex items-center gap-3 mb-3">
-              <AlertCircle className="w-6 h-6 text-red-500" />
-              <h4 className="font-bold text-gray-800">Stock Bajo</h4>
-            </div>
-            {dashboardData.alertas.stockBajo.length > 0 ? (
-              <ul className="space-y-2">
-                {dashboardData.alertas.stockBajo.map((item, index) => (
-                  <li key={index} className="text-sm text-gray-700 flex items-start gap-2">
-                    <span className="text-red-500 mt-1">•</span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-gray-500">No hay productos con stock bajo</p>
-            )}
-          </div>
-
-          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-yellow-500">
-            <div className="flex items-center gap-3 mb-3">
-              <AlertTriangle className="w-6 h-6 text-yellow-500" />
-              <h4 className="font-bold text-gray-800">Sin Movimiento</h4>
-            </div>
-            {dashboardData.alertas.sinMovimiento.length > 0 ? (
-              <ul className="space-y-2">
-                {dashboardData.alertas.sinMovimiento.map((item, index) => (
-                  <li key={index} className="text-sm text-gray-700 flex items-start gap-2">
-                    <span className="text-yellow-500 mt-1">•</span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-gray-500">Todos los productos tienen movimiento</p>
-            )}
-          </div>
-
-          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
-            <div className="flex items-center gap-3 mb-3">
-              <CheckCircle className="w-6 h-6 text-green-500" />
-              <h4 className="font-bold text-gray-800">Más Rentable</h4>
-            </div>
-            <p className="text-sm text-gray-700 mb-3">{dashboardData.alertas.masRentable}</p>
-            {dashboardData.alertas.stockBajo.length > 0 && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                <p className="text-xs font-semibold text-green-800 mb-1">💡 Sugerencia:</p>
-                <p className="text-sm text-green-700">Reponer {dashboardData.alertas.stockBajo[0]}</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Indicadores Clave */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">Indicadores Clave de Rendimiento</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-lg p-4">
-              <p className="text-sm text-emerald-700 font-medium mb-1">Ticket Promedio</p>
-              <p className="text-2xl font-bold text-emerald-900">{formatCurrency(dashboardData.kpis.ticketPromedio)}</p>
-            </div>
-            
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4">
-              <p className="text-sm text-blue-700 font-medium mb-1">Mayor Rotación</p>
-              <p className="text-lg font-bold text-blue-900">{dashboardData.kpis.mayorRotacion}</p>
-            </div>
-            
-            <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4">
-              <p className="text-sm text-purple-700 font-medium mb-1">Más Rentable</p>
-              <p className="text-lg font-bold text-purple-900">{dashboardData.kpis.masRentable}</p>
-            </div>
-            
-            <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg p-4">
-              <p className="text-sm text-amber-700 font-medium mb-1">Total Productos</p>
-              <p className="text-2xl font-bold text-amber-900">{allProductos.length}</p>
-            </div>
-          </div>
-        </div>
-
-        {/* MODAL DE CIERRE SIMPLIFICADO */}
+        {/* MODAL DE CIERRE */}
         {showCierreModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg shadow-2xl max-w-6xl w-full max-h-[95vh] overflow-y-auto">
-              {/* Header del Modal */}
               <div className="bg-emerald-600 text-white p-6 rounded-t-lg sticky top-0 z-10">
                 <div className="flex items-center justify-between">
                   <div>
@@ -1713,21 +964,15 @@ const [savingCierre, setSavingCierre] = useState(false);
                       {formatDateToDisplay(currentDateRange.start)} - {formatDateToDisplay(currentDateRange.end)}
                     </p>
                   </div>
-                  <button 
-                    onClick={() => setShowCierreModal(false)}
-                    className="text-white hover:bg-emerald-700 p-2 rounded-lg transition-colors"
-                  >
+                  <button onClick={() => setShowCierreModal(false)} className="text-white hover:bg-emerald-700 p-2 rounded-lg transition-colors">
                     <X className="w-6 h-6" />
                   </button>
                 </div>
               </div>
 
-              {/* Contenido del Modal */}
               <div className="p-6">
                 {cierreStep === 1 ? (
-                  // PASO 1: Ingreso de Datos
                   <div className="space-y-6">
-                    {/* Solo mostrar Caja Esperada */}
                     <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
                       <h3 className="font-bold text-emerald-900 mb-3 flex items-center gap-2">
                         <CheckCircle className="w-5 h-5" />
@@ -1745,7 +990,6 @@ const [savingCierre, setSavingCierre] = useState(false);
                       </div>
                     </div>
 
-                    {/* Ingreso de Caja */}
                     <div className="space-y-4">
                       <div>
                         <label className="block text-sm font-bold text-gray-700 mb-2">
@@ -1774,7 +1018,6 @@ const [savingCierre, setSavingCierre] = useState(false);
                       </div>
                     </div>
 
-                    {/* Tabla con stock por producto */}
                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                       <h4 className="font-bold text-yellow-900 mb-3 flex items-center gap-2">
                         <Edit2 className="w-5 h-5" />
@@ -1853,7 +1096,6 @@ const [savingCierre, setSavingCierre] = useState(false);
                     </div>
                   </div>
                 ) : (
-                  // PASO 2: Confirmación y Resultados
                   <div className="space-y-6">
                     <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
                       <h3 className="text-xl font-bold text-gray-900 mb-6 text-center">
@@ -1899,7 +1141,6 @@ const [savingCierre, setSavingCierre] = useState(false);
                         </div>
                       </div>
 
-                      {/* Status Final */}
                       <div className={`rounded-lg p-4 text-center ${
                         cierreData.cajaEsperada === parseFloat(cajaContada)
                           ? 'bg-green-100 border-2 border-green-500'

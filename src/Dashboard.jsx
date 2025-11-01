@@ -26,12 +26,10 @@ const Dashboard = () => {
   const [showCierreModal, setShowCierreModal] = useState(false);
   const [cierreStep, setCierreStep] = useState(1);
   const [cajaContada, setCajaContada] = useState('');
-  const [mermasConfirmadas, setMermasConfirmadas] = useState('');
   const [notasCierre, setNotasCierre] = useState('');
   const [cierreData, setCierreData] = useState(null);
   const [savingCierre, setSavingCierre] = useState(false);
   const [stockContadoPorProducto, setStockContadoPorProducto] = useState({});
-  const [totalMermasPeriodo, setTotalMermasPeriodo] = useState(0);
 
   // FUNCIONES PARA ZONA HORARIA BOGOTÁ
   const getStartOfDayInBogota = (dateString) => {
@@ -195,6 +193,19 @@ const Dashboard = () => {
 
       if (gastosError) throw gastosError;
 
+      // ✅ CAMBIO 2: Obtener mermas para sumarlas a gastos
+      const { data: mermas, error: mermasError } = await supabase
+        .from('movimientos_inventario')
+        .select('*')
+        .eq('tenant_id', tenant_id)
+        .eq('tipo', 'merma')
+        .eq('activo', true)
+        .is('deleted_at', null)
+        .gte('created_at', startDateISO)
+        .lte('created_at', endDateISO);
+
+      if (mermasError) throw mermasError;
+
       // 5. Obtener productos
       const { data: productos, error: productosError } = await supabase
         .from('productos')
@@ -208,7 +219,7 @@ const Dashboard = () => {
       setAllProductos(productos);
       setGastosDelPeriodo(gastos);
 
-      const processedData = processDashboardData(ventas, compras, consumos, gastos, productos);
+      const processedData = processDashboardData(ventas, compras, consumos, gastos, productos, mermas);
       setDashboardData(processedData);
       setLoading(false);
 
@@ -279,11 +290,17 @@ const Dashboard = () => {
     };
   };
 
-  const processDashboardData = (ventas, compras, consumos, gastos, productos) => {
+  // ✅ CAMBIO 2: Incluir mermas en gastos totales
+  const processDashboardData = (ventas, compras, consumos, gastos, productos, mermas) => {
     const totalVentas = ventas.reduce((sum, v) => sum + parseFloat(v.total || 0), 0);
     const totalCompras = compras.reduce((sum, c) => sum + parseFloat(c.costo_total || 0), 0);
     const totalConsumos = consumos.reduce((sum, c) => sum + parseFloat(c.costo_total || 0), 0);
     const totalGastos = gastos.reduce((sum, g) => sum + parseFloat(g.monto || 0), 0);
+    
+    // ✅ CAMBIO 2: Sumar costo de mermas a gastos
+    const totalMermas = (mermas || []).reduce((sum, m) => sum + parseFloat(m.costo_total || 0), 0);
+    const totalGastosConMermas = totalGastos + totalMermas;
+    
     const utilidadBruta = totalVentas - totalCompras - totalConsumos;
 
     const productosVendidos = {};
@@ -352,7 +369,7 @@ const Dashboard = () => {
         ventas: totalVentas,
         compras: totalCompras,
         consumos: totalConsumos,
-        gastos: totalGastos,
+        gastos: totalGastosConMermas,
         utilidad: utilidadBruta
       },
       ventasSemanales: ventasPorDia,
@@ -481,11 +498,9 @@ const Dashboard = () => {
       .slice(0, 10);
   };
 
-  // ✅ CAMBIO 3: Obtener mermas del período actual
   const handleAbrirCierre = async () => {
     const { startDate: start, endDate: end } = getDateRange(dateRange);
     
-    // Validación de cierre duplicado
     const { data: cierreExistente } = await supabase
       .from('cierres')
       .select('*')
@@ -499,25 +514,8 @@ const Dashboard = () => {
       return;
     }
 
-    // ✅ CAMBIO 3: Obtener mermas del período actual
-    const { data: mermasPeriodo } = await supabase
-      .from('movimientos_inventario')
-      .select('*')
-      .eq('tenant_id', tenantId)
-      .eq('tipo', 'merma')
-      .eq('activo', true)
-      .is('deleted_at', null)
-      .gte('created_at', start)
-      .lte('created_at', end);
-
-    // Calcular total de mermas
-    const totalMermas = (mermasPeriodo || []).reduce((sum, m) => sum + parseFloat(m.costo_total || 0), 0);
-    setTotalMermasPeriodo(totalMermas);
-
-    // Fórmula de caja esperada
     const cajaEsperada = dashboardData.resumen.ventas - dashboardData.resumen.compras - dashboardData.resumen.gastos;
 
-    // Inicializar stock contado
     const stockContadoInicial = {};
     allProductos.forEach(producto => {
       stockContadoInicial[producto.producto_id] = '';
@@ -540,7 +538,6 @@ const Dashboard = () => {
     setShowCierreModal(true);
     setCierreStep(1);
     setCajaContada('');
-    setMermasConfirmadas('');
     setNotasCierre('');
   };
 
@@ -550,7 +547,6 @@ const Dashboard = () => {
       return;
     }
 
-    // ✅ CAMBIO 8: Validar que todos los productos tengan stock contado
     const productosSinStock = allProductos.filter(p => 
       stockContadoPorProducto[p.producto_id] === '' || 
       stockContadoPorProducto[p.producto_id] === undefined ||
@@ -565,6 +561,7 @@ const Dashboard = () => {
     setCierreStep(2);
   };
 
+  // ✅ CAMBIO 5: No crear movimientos de ajuste automáticamente
   const handleGuardarCierre = async () => {
     setSavingCierre(true);
     
@@ -572,18 +569,15 @@ const Dashboard = () => {
       const cajaReal = parseFloat(cajaContada);
       const diferenciaCaja = cierreData.cajaEsperada - cajaReal;
       
-      // Calcular total de inventario contado
       let inventarioContado = 0;
       allProductos.forEach(producto => {
         const stockContado = parseFloat(stockContadoPorProducto[producto.producto_id]) || 0;
         inventarioContado += stockContado;
       });
 
-      // ✅ CAMBIO 5: Calcular diferencia total de inventario
       const diferenciaInventarioTotal = inventarioContado - 
         allProductos.reduce((sum, p) => sum + parseFloat(p.stock_actual || 0), 0);
 
-      // ✅ CAMBIO 5: Cuadrado solo si ambas diferencias son 0
       const cuadrado = diferenciaCaja === 0 && diferenciaInventarioTotal === 0;
 
       const cierreRecord = {
@@ -604,7 +598,6 @@ const Dashboard = () => {
         inventario_real: inventarioContado,
         diferencia_inventario: diferenciaInventarioTotal,
         cuadrado: cuadrado,
-        mermas_confirmadas: parseFloat(mermasConfirmadas) || 0,
         notas: notasCierre,
         created_at: new Date().toISOString()
       };
@@ -620,7 +613,7 @@ const Dashboard = () => {
       const cierreId = cierreInsertado[0].id;
       console.log('✅ Cierre guardado con ID:', cierreId);
 
-      // ✅ CAMBIO 6: Guardar detalle en cierre_inventario para CADA PRODUCTO
+      // ✅ CAMBIO 5: Guardar en cierre_inventario pero SIN crear movimientos de ajuste
       const cierreInventarioRecords = [];
       
       for (const producto of allProductos) {
@@ -633,10 +626,10 @@ const Dashboard = () => {
           tenant_id: tenantId,
           producto_id: producto.producto_id,
           stock_inicio_periodo: stockEsperado,
-          stock_comprado: 0, // Será calculado en trigger si es necesario
-          stock_vendido: 0,   // Será calculado en trigger si es necesario
-          stock_consumido: 0, // Será calculado en trigger si es necesario
-          stock_mermas: 0,    // Será calculado en trigger si es necesario
+          stock_comprado: 0,
+          stock_vendido: 0,
+          stock_consumido: 0,
+          stock_mermas: 0,
           stock_esperado: stockEsperado,
           stock_contado: stockContado,
           diferencia: diferencia,
@@ -653,42 +646,7 @@ const Dashboard = () => {
         console.log('✅ Registros de cierre_inventario insertados:', cierreInventarioRecords.length);
       }
 
-      // Crear movimientos de ajuste automáticos
-      const movimientosAjuste = [];
-      
-      for (const producto of allProductos) {
-        const stockContado = parseFloat(stockContadoPorProducto[producto.producto_id]) || 0;
-        const stockEsperado = parseFloat(producto.stock_actual || 0);
-        const diferencia = stockContado - stockEsperado;
-
-        if (diferencia !== 0) {
-          movimientosAjuste.push({
-            tenant_id: tenantId,
-            cierre_id: cierreId,
-            producto_id: producto.producto_id,
-            tipo: 'ajuste_inventario',
-            cantidad: Math.abs(diferencia),
-            costo_unitario: producto.costo_unitario || 0,
-            costo_total: Math.abs(diferencia) * (producto.costo_unitario || 0),
-            descripcion: diferencia > 0 
-              ? `Ajuste por cierre: excedente de inventario (+${diferencia} und)`
-              : `Ajuste por cierre: faltante de inventario (${diferencia} und)`,
-            activo: true,
-            created_at: new Date().toISOString()
-          });
-        }
-      }
-
-      if (movimientosAjuste.length > 0) {
-        const { error: movimientosError } = await supabase
-          .from('movimientos_inventario')
-          .insert(movimientosAjuste);
-
-        if (movimientosError) throw movimientosError;
-        console.log('✅ Movimientos de ajuste creados:', movimientosAjuste.length);
-      }
-
-      alert('✅ Cierre guardado exitosamente con todos los ajustes de inventario');
+      alert('✅ Cierre guardado exitosamente');
       setShowCierreModal(false);
       
     } catch (error) {
@@ -1280,7 +1238,7 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* MODAL DE CIERRE MEJORADO */}
+        {/* MODAL DE CIERRE SIMPLIFICADO */}
         {showCierreModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg shadow-2xl max-w-6xl w-full max-h-[95vh] overflow-y-auto">
@@ -1307,11 +1265,11 @@ const Dashboard = () => {
                 {cierreStep === 1 ? (
                   // PASO 1: Ingreso de Datos
                   <div className="space-y-6">
-                    {/* Valores Esperados */}
+                    {/* ✅ CAMBIO 4: Solo mostrar Caja Esperada y Caja Contada */}
                     <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
                       <h3 className="font-bold text-emerald-900 mb-3 flex items-center gap-2">
                         <CheckCircle className="w-5 h-5" />
-                        Valores Esperados (Sistema)
+                        Caja Esperada (Sistema)
                       </h3>
                       
                       <div className="bg-white rounded-lg p-4 border border-emerald-200">
@@ -1323,19 +1281,6 @@ const Dashboard = () => {
                           = Ventas ({formatCurrency(cierreData.ventasTotal)}) - Compras ({formatCurrency(cierreData.comprasTotal)}) - Gastos ({formatCurrency(cierreData.gastosTotal)})
                         </p>
                       </div>
-
-                      {/* ✅ CAMBIO 4: Mostrar Mermas del Período */}
-                      {totalMermasPeriodo > 0 && (
-                        <div className="mt-3 bg-white rounded-lg p-4 border border-yellow-300">
-                          <p className="text-sm text-gray-600 mb-1">📉 Mermas del Período</p>
-                          <p className="text-2xl font-bold text-yellow-700">
-                            {formatCurrency(totalMermasPeriodo)}
-                          </p>
-                          <p className="text-xs text-gray-500 mt-2">
-                            Costo total de productos perdidos/dañados en el período
-                          </p>
-                        </div>
-                      )}
                     </div>
 
                     {/* Ingreso de Caja */}
@@ -1355,19 +1300,6 @@ const Dashboard = () => {
 
                       <div>
                         <label className="block text-sm font-bold text-gray-700 mb-2">
-                          📉 Mermas Confirmadas (Opcional)
-                        </label>
-                        <input
-                          type="number"
-                          value={mermasConfirmadas}
-                          onChange={(e) => setMermasConfirmadas(e.target.value)}
-                          placeholder="Ingrese cantidad de productos perdidos/dañados"
-                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-2">
                           📝 Notas / Observaciones (Opcional)
                         </label>
                         <textarea
@@ -1380,7 +1312,7 @@ const Dashboard = () => {
                       </div>
                     </div>
 
-                    {/* ✅ CAMBIO 2 + 4: Tabla con columna Unidad */}
+                    {/* ✅ CAMBIO 3: Tabla con columna unidad_peso */}
                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                       <h4 className="font-bold text-yellow-900 mb-3 flex items-center gap-2">
                         <Edit2 className="w-5 h-5" />
@@ -1406,7 +1338,8 @@ const Dashboard = () => {
                             {allProductos.map((producto) => {
                               const stockContado = parseFloat(stockContadoPorProducto[producto.producto_id]) || 0;
                               const diferencia = stockContado - parseFloat(producto.stock_actual || 0);
-                              const unidad = producto.tipo_peso || 'und';
+                              // ✅ CAMBIO 3: Usar unidad_peso
+                              const unidad = producto.unidad_peso || 'und';
                               return (
                                 <tr key={producto.producto_id} className="border-b border-yellow-200 hover:bg-yellow-50">
                                   <td className="px-4 py-2 font-semibold text-gray-900">{producto.codigo}</td>
@@ -1466,7 +1399,7 @@ const Dashboard = () => {
                         Resumen del Cierre
                       </h3>
                       
-                      {/* ✅ CAMBIO 7: Mostrar solo diferencias por unidad */}
+                      {/* ✅ CAMBIO 4: Solo Caja Esperada y Caja Contada */}
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                         <div>
                           <h4 className="text-center font-bold text-gray-700 mb-4 text-lg">

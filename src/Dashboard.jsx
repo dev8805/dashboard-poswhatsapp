@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { DollarSign, ShoppingCart, ShoppingBag, TrendingUp, Download, AlertCircle, CheckCircle, AlertTriangle, Package, Calendar, X, FileText, Edit2 , RefreshCw} from 'lucide-react';
+import { DollarSign, ShoppingCart, ShoppingBag, TrendingUp, Download, AlertCircle, CheckCircle, AlertTriangle, Package, Calendar, X, FileText, Edit2 } from 'lucide-react';
 import { supabase } from './supabaseClient';
 
 const Dashboard = () => {
@@ -392,7 +392,7 @@ const Dashboard = () => {
   };
 
   const getVentasPorDia = (ventas, compras, gastos) => {
-    const dias = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+    const dias = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
     const ventasPorDia = {};
 
     for (let i = 6; i >= 0; i--) {
@@ -645,22 +645,30 @@ const Dashboard = () => {
         console.log('✅ Registros de cierre_inventario insertados:', cierreInventarioRecords.length);
       }
 
-      // ✅ 3. NUEVO: Actualizar stock_actual de cada producto con el stock_contado del cierre
-      // Esto asegura que el próximo período comience con los números correctos
+      // ✅ 3. ACTUALIZAR STOCK_ACTUAL DE CADA PRODUCTO CON EL STOCK CONTADO DEL CIERRE
+      console.log('🔄 Iniciando actualización de stock en productos...');
+
+      // Configurar el token actual para que la policy de Supabase funcione
+      await supabase.rpc('set_request_context', {
+        current_token: token
+      });
+
       for (const producto of allProductos) {
         const stockContado = parseFloat(stockContadoPorProducto[producto.producto_id]) || 0;
-        
+
         const { error: updateError } = await supabase
           .from('productos')
           .update({ 
-            stock_actual: stockContado 
+            stock_actual: stockContado,
+            updated_at: new Date().toISOString(),
+            updated_by: tenantId
           })
           .eq('producto_id', producto.producto_id)
           .eq('tenant_id', tenantId);
 
         if (updateError) {
-          console.error(`Error actualizando stock del producto ${producto.producto_id}:`, updateError);
-          throw updateError;
+          console.error(`❌ Error actualizando stock del producto ${producto.producto_id}:`, updateError);
+          throw new Error(`Error actualizando ${producto.producto}: ${updateError.message}`);
         }
       }
 
@@ -824,16 +832,6 @@ const Dashboard = () => {
                 <CheckCircle className="w-5 h-5" />
                 Hacer Cierre
               </button>
-            <button
-              onClick={() => {
-                setLoading(true);
-                loadDashboardData(tenantId);
-              }}
-              className="flex items-center justify-center gap-2 bg-white text-emerald-600 px-6 py-2 rounded-lg font-semibold hover:bg-emerald-50 transition-colors shadow-md"
-            >
-              <RefreshCw className="w-5 h-5" />
-              Refrescar Datos
-            </button>
               <button
                 onClick={handleExportPDF}
                 className="flex items-center justify-center gap-2 bg-white text-emerald-600 px-6 py-2 rounded-lg font-semibold hover:bg-emerald-50 transition-colors shadow-md"
@@ -1030,6 +1028,20 @@ const Dashboard = () => {
           </div>
         </div>
 
+        {/* Gráfico de Línea de Tendencia */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <h3 className="text-lg font-bold text-gray-800 mb-4">Ventas Acumuladas</h3>
+          <ResponsiveContainer width="100%" height={250}>
+            <LineChart data={dashboardData.tendencia}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="dia" />
+              <YAxis />
+              <Tooltip formatter={(value) => formatCurrency(value)} />
+              <Legend />
+              <Line type="monotone" dataKey="acumulado" stroke="#10b981" strokeWidth={3} name="Ventas Acumuladas" />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
 
         {/* Tabla de Gastos por Categoría */}
         {Object.keys(gastosPorCategoria).length > 0 && (

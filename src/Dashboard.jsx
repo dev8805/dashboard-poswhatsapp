@@ -505,8 +505,7 @@ const Dashboard = () => {
       .from('cierres')
       .select('*')
       .eq('tenant_id', tenantId)
-      .gte('created_at', start)
-      .lte('created_at', end)
+      .eq('tipo_cierre', dateRange)
       .limit(1);
 
     if (cierreExistente && cierreExistente.length > 0) {

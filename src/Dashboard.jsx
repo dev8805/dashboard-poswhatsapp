@@ -800,7 +800,7 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-100 p-4 sm:p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
+        {/* Header con Fechas Visibles */}
         <div className="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-lg shadow-lg p-6 mb-6 text-white">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
@@ -809,7 +809,7 @@ const Dashboard = () => {
                 <h1 className="text-2xl sm:text-3xl font-bold">Tienda el Castillo</h1>
               </div>
               <p className="text-emerald-100 text-sm">Propietario: Alejandro Castillo</p>
-
+              
               <div className="flex items-center gap-2 mt-3 bg-white/20 rounded-lg px-4 py-2 inline-block">
                 <Calendar className="w-5 h-5" />
                 <span className="font-semibold text-sm">
@@ -836,38 +836,55 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Date Range Selector */}
+        {/* Selector de Rango de Fechas */}
         <div className="bg-white rounded-lg shadow-md p-4 mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <label className="text-gray-700 font-medium">Período:</label>
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => handleDateRangeChange('today')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${dateRange === 'today' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  dateRange === 'today'
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
               >
                 Hoy
               </button>
               <button
                 onClick={() => handleDateRangeChange('week')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${dateRange === 'week' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  dateRange === 'week'
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
               >
                 Última Semana
               </button>
               <button
                 onClick={() => handleDateRangeChange('month')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${dateRange === 'month' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  dateRange === 'month'
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
               >
                 Este Mes
               </button>
               <button
                 onClick={() => handleDateRangeChange('custom')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${dateRange === 'custom' ? 'bg-emerald-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                  dateRange === 'custom'
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
               >
                 <Calendar className="w-4 h-4" />
                 Personalizado
               </button>
             </div>
           </div>
+
           {showDatePicker && (
             <div className="mt-4 p-4 bg-gray-50 rounded-lg border-2 border-emerald-200">
               <div className="flex flex-col sm:flex-row gap-4 items-end">
@@ -892,7 +909,11 @@ const Dashboard = () => {
                 <button
                   onClick={applyCustomDates}
                   disabled={!startDate || !endDate}
-                  className={`px-6 py-2 rounded-lg font-semibold transition-colors ${startDate && endDate ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+                  className={`px-6 py-2 rounded-lg font-semibold transition-colors ${
+                    startDate && endDate
+                      ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                      : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  }`}
                 >
                   Aplicar
                 </button>
@@ -901,7 +922,7 @@ const Dashboard = () => {
           )}
         </div>
 
-        {/* Summary Cards */}
+        {/* Resumen Ejecutivo */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-emerald-500">
             <div className="flex items-center justify-between">
@@ -952,10 +973,297 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* MODAL DE CIERRE */}
+        {/* Gráficos */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="text-lg font-bold text-gray-800 mb-4">Ventas vs Compras vs Gastos (Última Semana)</h3>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={dashboardData.ventasSemanales}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="dia" />
+                <YAxis />
+                <Tooltip formatter={(value) => formatCurrency(value)} />
+                <Legend />
+                <Bar dataKey="ventas" fill="#10b981" name="Ventas" />
+                <Bar dataKey="compras" fill="#3b82f6" name="Compras" />
+                <Bar dataKey="gastos" fill="#f59e0b" name="Gastos" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <h3 className="text-lg font-bold text-gray-800 mb-4">Top 5 Productos Más Vendidos</h3>
+            {dashboardData.productosChart.length > 0 ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={dashboardData.productosChart}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ nombre, porcentaje }) => `${nombre} ${porcentaje}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="valor"
+                  >
+                    {dashboardData.productosChart.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => formatCurrency(value)} />
+                </PieChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex items-center justify-center h-[300px] text-gray-500">
+                No hay datos de productos para mostrar
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Gráfico de Línea de Tendencia */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <h3 className="text-lg font-bold text-gray-800 mb-4">Ventas Acumuladas</h3>
+          <ResponsiveContainer width="100%" height={250}>
+            <LineChart data={dashboardData.tendencia}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="dia" />
+              <YAxis />
+              <Tooltip formatter={(value) => formatCurrency(value)} />
+              <Legend />
+              <Line type="monotone" dataKey="acumulado" stroke="#10b981" strokeWidth={3} name="Ventas Acumuladas" />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Tabla de Gastos por Categoría */}
+        {Object.keys(gastosPorCategoria).length > 0 && (
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h3 className="text-lg font-bold text-gray-800 mb-4">📊 Desglose de Gastos por Categoría</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoría</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monto</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {Object.entries(gastosPorCategoria).map(([categoria, monto], index) => (
+                    <tr key={index} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{categoria}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(monto)}</td>
+                    </tr>
+                  ))}
+                  <tr className="bg-gray-100 font-bold">
+                    <td className="px-4 py-3 text-sm text-gray-900">TOTAL GASTOS</td>
+                    <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(dashboardData.resumen.gastos)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Tabla Top Productos */}
+        {sortedProducts.length > 0 && (
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
+              <h3 className="text-lg font-bold text-gray-800">Top Productos</h3>
+              <select 
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              >
+                <option value="ventas">Ordenar por Ventas</option>
+                <option value="stock">Ordenar por Stock</option>
+                <option value="margen">Ordenar por Margen</option>
+              </select>
+            </div>
+            
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Código</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nombre</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Vendidos</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stock</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Margen</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {sortedProducts.map((producto, index) => (
+                    <tr key={index} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm text-gray-900">{producto.codigo}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{producto.nombre}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{producto.vendidos}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(producto.total)}</td>
+                      <td className="px-4 py-3 text-sm">
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                          producto.stock < 10 ? 'bg-red-100 text-red-800' : 
+                          producto.stock < 50 ? 'bg-yellow-100 text-yellow-800' : 
+                          'bg-green-100 text-green-800'
+                        }`}>
+                          {Math.round(producto.stock)} und
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                          producto.margen > 30 ? 'bg-green-100 text-green-800' : 
+                          producto.margen > 20 ? 'bg-yellow-100 text-yellow-800' : 
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {producto.margen}%
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Últimos Movimientos */}
+        {filteredMovements.length > 0 && (
+          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
+              <h3 className="text-lg font-bold text-gray-800">Últimos Movimientos</h3>
+              <select 
+                value={filterMovement}
+                onChange={(e) => setFilterMovement(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              >
+                <option value="todos">Todos los movimientos</option>
+                <option value="venta">Solo Ventas</option>
+                <option value="compra">Solo Compras</option>
+                <option value="consumo">Solo Consumos</option>
+              </select>
+            </div>
+            
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Producto</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cantidad</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Valor</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha/Hora</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {filteredMovements.map((mov, index) => (
+                    <tr key={index} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm">
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                          mov.tipo === 'Venta' ? 'bg-emerald-100 text-emerald-800' : 
+                          mov.tipo === 'Compra' ? 'bg-blue-100 text-blue-800' : 
+                          'bg-amber-100 text-amber-800'
+                        }`}>
+                          {mov.tipo}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{mov.producto}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{Math.round(mov.cantidad * 100) / 100}</td>
+                      <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(mov.valor)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-500">{mov.fecha}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Alertas y Recomendaciones */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-red-500">
+            <div className="flex items-center gap-3 mb-3">
+              <AlertCircle className="w-6 h-6 text-red-500" />
+              <h4 className="font-bold text-gray-800">Stock Bajo</h4>
+            </div>
+            {dashboardData.alertas.stockBajo.length > 0 ? (
+              <ul className="space-y-2">
+                {dashboardData.alertas.stockBajo.map((item, index) => (
+                  <li key={index} className="text-sm text-gray-700 flex items-start gap-2">
+                    <span className="text-red-500 mt-1">•</span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-gray-500">No hay productos con stock bajo</p>
+            )}
+          </div>
+
+          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-yellow-500">
+            <div className="flex items-center gap-3 mb-3">
+              <AlertTriangle className="w-6 h-6 text-yellow-500" />
+              <h4 className="font-bold text-gray-800">Sin Movimiento</h4>
+            </div>
+            {dashboardData.alertas.sinMovimiento.length > 0 ? (
+              <ul className="space-y-2">
+                {dashboardData.alertas.sinMovimiento.map((item, index) => (
+                  <li key={index} className="text-sm text-gray-700 flex items-start gap-2">
+                    <span className="text-yellow-500 mt-1">•</span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-gray-500">Todos los productos tienen movimiento</p>
+            )}
+          </div>
+
+          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
+            <div className="flex items-center gap-3 mb-3">
+              <CheckCircle className="w-6 h-6 text-green-500" />
+              <h4 className="font-bold text-gray-800">Más Rentable</h4>
+            </div>
+            <p className="text-sm text-gray-700 mb-3">{dashboardData.alertas.masRentable}</p>
+            {dashboardData.alertas.stockBajo.length > 0 && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                <p className="text-xs font-semibold text-green-800 mb-1">💡 Sugerencia:</p>
+                <p className="text-sm text-green-700">Reponer {dashboardData.alertas.stockBajo[0]}</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Indicadores Clave */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <h3 className="text-lg font-bold text-gray-800 mb-4">Indicadores Clave de Rendimiento</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-lg p-4">
+              <p className="text-sm text-emerald-700 font-medium mb-1">Ticket Promedio</p>
+              <p className="text-2xl font-bold text-emerald-900">{formatCurrency(dashboardData.kpis.ticketPromedio)}</p>
+            </div>
+            
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4">
+              <p className="text-sm text-blue-700 font-medium mb-1">Mayor Rotación</p>
+              <p className="text-lg font-bold text-blue-900">{dashboardData.kpis.mayorRotacion}</p>
+            </div>
+            
+            <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4">
+              <p className="text-sm text-purple-700 font-medium mb-1">Más Rentable</p>
+              <p className="text-lg font-bold text-purple-900">{dashboardData.kpis.masRentable}</p>
+            </div>
+            
+            <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg p-4">
+              <p className="text-sm text-amber-700 font-medium mb-1">Total Productos</p>
+              <p className="text-2xl font-bold text-amber-900">{allProductos.length}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* MODAL DE CIERRE SIMPLIFICADO */}
         {showCierreModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg shadow-2xl max-w-6xl w-full max-h-[95vh] overflow-y-auto">
+              {/* Header del Modal */}
               <div className="bg-emerald-600 text-white p-6 rounded-t-lg sticky top-0 z-10">
                 <div className="flex items-center justify-between">
                   <div>
@@ -964,15 +1272,21 @@ const Dashboard = () => {
                       {formatDateToDisplay(currentDateRange.start)} - {formatDateToDisplay(currentDateRange.end)}
                     </p>
                   </div>
-                  <button onClick={() => setShowCierreModal(false)} className="text-white hover:bg-emerald-700 p-2 rounded-lg transition-colors">
+                  <button 
+                    onClick={() => setShowCierreModal(false)}
+                    className="text-white hover:bg-emerald-700 p-2 rounded-lg transition-colors"
+                  >
                     <X className="w-6 h-6" />
                   </button>
                 </div>
               </div>
 
+              {/* Contenido del Modal */}
               <div className="p-6">
                 {cierreStep === 1 ? (
+                  // PASO 1: Ingreso de Datos
                   <div className="space-y-6">
+                    {/* Solo mostrar Caja Esperada */}
                     <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
                       <h3 className="font-bold text-emerald-900 mb-3 flex items-center gap-2">
                         <CheckCircle className="w-5 h-5" />
@@ -990,6 +1304,7 @@ const Dashboard = () => {
                       </div>
                     </div>
 
+                    {/* Ingreso de Caja */}
                     <div className="space-y-4">
                       <div>
                         <label className="block text-sm font-bold text-gray-700 mb-2">
@@ -1018,6 +1333,7 @@ const Dashboard = () => {
                       </div>
                     </div>
 
+                    {/* Tabla con stock por producto */}
                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                       <h4 className="font-bold text-yellow-900 mb-3 flex items-center gap-2">
                         <Edit2 className="w-5 h-5" />
@@ -1096,6 +1412,7 @@ const Dashboard = () => {
                     </div>
                   </div>
                 ) : (
+                  // PASO 2: Confirmación y Resultados
                   <div className="space-y-6">
                     <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
                       <h3 className="text-xl font-bold text-gray-900 mb-6 text-center">
@@ -1141,6 +1458,7 @@ const Dashboard = () => {
                         </div>
                       </div>
 
+                      {/* Status Final */}
                       <div className={`rounded-lg p-4 text-center ${
                         cierreData.cajaEsperada === parseFloat(cajaContada)
                           ? 'bg-green-100 border-2 border-green-500'

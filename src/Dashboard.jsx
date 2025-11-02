@@ -219,7 +219,7 @@ const Dashboard = () => {
       setAllProductos(productos);
       setGastosDelPeriodo(gastos);
 
-      const processedData = processDashboardData(ventas, compras, consumos, gastos, productos, mermas);
+      const processedData = processDashboardData(ventas, compras, consumos, gastos, productos, mermas, dateRange, displayStartDate, displayEndDate);
       setDashboardData(processedData);
       setLoading(false);
 
@@ -291,7 +291,7 @@ const Dashboard = () => {
   };
 
   // Incluir mermas en gastos totales
-  const processDashboardData = (ventas, compras, consumos, gastos, productos, mermas) => {
+  const processDashboardData = (ventas, compras, consumos, gastos, productos, mermas, periodo, fechaInicio, fechaFin) => {
     const totalVentas = ventas.reduce((sum, v) => sum + parseFloat(v.total || 0), 0);
     const totalCompras = compras.reduce((sum, c) => sum + parseFloat(c.costo_total || 0), 0);
     const totalConsumos = consumos.reduce((sum, c) => sum + parseFloat(c.costo_total || 0), 0);
@@ -357,7 +357,7 @@ const Dashboard = () => {
     const masRentable = topProductos.length > 0 ? 
       topProductos.reduce((max, p) => p.margen > max.margen ? p : max, topProductos[0]) : null;
 
-    const ventasPorDia = getVentasPorDia(ventas, compras, gastos);
+    const ventasPorDia = getVentasPorDia(ventas, compras, gastos, periodo, fechaInicio, fechaFin);
     const tendencia = getTendenciaAcumulada(ventas);
     const ultimosMovimientos = getUltimosMovimientos(ventas, compras, consumos, productos);
 
@@ -391,42 +391,162 @@ const Dashboard = () => {
     };
   };
 
-  const getVentasPorDia = (ventas, compras, gastos) => {
+  const getVentasPorDia = (ventas, compras, gastos, periodo, fechaInicio, fechaFin) => {
     const diasSemana = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-    const diasOrdenados = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-    const ventasPorDia = {};
+    const mesesNombres = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
 
-    // Inicializar todos los días de Lunes a Domingo con valores en 0
-    diasOrdenados.forEach(dia => {
-      ventasPorDia[dia] = { dia, ventas: 0, compras: 0, gastos: 0 };
-    });
+    const inicio = new Date(fechaInicio);
+    const fin = new Date(fechaFin);
+    const diffTime = Math.abs(fin - inicio);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
-    ventas.forEach(v => {
-      const fecha = new Date(v.created_at);
-      const dia = diasSemana[fecha.getDay()];
-      if (ventasPorDia[dia]) {
-        ventasPorDia[dia].ventas += parseFloat(v.total || 0);
+    let agrupacion = {};
+    let labels = [];
+
+    if (periodo === 'today') {
+      const franjas = ['6-9am', '9-12pm', '12-3pm', '3-6pm', '6-9pm', '9-12am'];
+      franjas.forEach(franja => {
+        agrupacion[franja] = { dia: franja, ventas: 0, compras: 0, gastos: 0 };
+      });
+
+      const asignarFranja = (hora) => {
+        if (hora >= 6 && hora < 9) return '6-9am';
+        if (hora >= 9 && hora < 12) return '9-12pm';
+        if (hora >= 12 && hora < 15) return '12-3pm';
+        if (hora >= 15 && hora < 18) return '3-6pm';
+        if (hora >= 18 && hora < 21) return '6-9pm';
+        return '9-12am';
+      };
+
+      ventas.forEach(v => {
+        const fecha = new Date(v.created_at);
+        const franja = asignarFranja(fecha.getHours());
+        agrupacion[franja].ventas += parseFloat(v.total || 0);
+      });
+
+      compras.forEach(c => {
+        const fecha = new Date(c.created_at);
+        const franja = asignarFranja(fecha.getHours());
+        agrupacion[franja].compras += parseFloat(c.costo_total || 0);
+      });
+
+      gastos.forEach(g => {
+        const fecha = new Date(g.created_at);
+        const franja = asignarFranja(fecha.getHours());
+        agrupacion[franja].gastos += parseFloat(g.monto || 0);
+      });
+
+      labels = franjas;
+
+    } else if (periodo === 'week' || (periodo === 'custom' && diffDays <= 7)) {
+      const diasOrdenados = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+      diasOrdenados.forEach(dia => {
+        agrupacion[dia] = { dia, ventas: 0, compras: 0, gastos: 0 };
+      });
+
+      ventas.forEach(v => {
+        const fecha = new Date(v.created_at);
+        const dia = diasSemana[fecha.getDay()];
+        if (agrupacion[dia]) {
+          agrupacion[dia].ventas += parseFloat(v.total || 0);
+        }
+      });
+
+      compras.forEach(c => {
+        const fecha = new Date(c.created_at);
+        const dia = diasSemana[fecha.getDay()];
+        if (agrupacion[dia]) {
+          agrupacion[dia].compras += parseFloat(c.costo_total || 0);
+        }
+      });
+
+      gastos.forEach(g => {
+        const fecha = new Date(g.created_at);
+        const dia = diasSemana[fecha.getDay()];
+        if (agrupacion[dia]) {
+          agrupacion[dia].gastos += parseFloat(g.monto || 0);
+        }
+      });
+
+      labels = diasOrdenados;
+
+    } else if (periodo === 'month' || (periodo === 'custom' && diffDays > 7 && diffDays <= 31)) {
+      const numSemanas = Math.ceil(diffDays / 7);
+      for (let i = 1; i <= numSemanas; i++) {
+        const label = `Semana ${i}`;
+        agrupacion[label] = { dia: label, ventas: 0, compras: 0, gastos: 0 };
+        labels.push(label);
       }
-    });
 
-    compras.forEach(c => {
-      const fecha = new Date(c.created_at);
-      const dia = diasSemana[fecha.getDay()];
-      if (ventasPorDia[dia]) {
-        ventasPorDia[dia].compras += parseFloat(c.costo_total || 0);
+      const getSemanaDelDia = (fecha) => {
+        const diffDesdeInicio = Math.ceil((fecha - inicio) / (1000 * 60 * 60 * 24));
+        return `Semana ${Math.ceil(diffDesdeInicio / 7)}`;
+      };
+
+      ventas.forEach(v => {
+        const fecha = new Date(v.created_at);
+        const semana = getSemanaDelDia(fecha);
+        if (agrupacion[semana]) {
+          agrupacion[semana].ventas += parseFloat(v.total || 0);
+        }
+      });
+
+      compras.forEach(c => {
+        const fecha = new Date(c.created_at);
+        const semana = getSemanaDelDia(fecha);
+        if (agrupacion[semana]) {
+          agrupacion[semana].compras += parseFloat(c.costo_total || 0);
+        }
+      });
+
+      gastos.forEach(g => {
+        const fecha = new Date(g.created_at);
+        const semana = getSemanaDelDia(fecha);
+        if (agrupacion[semana]) {
+          agrupacion[semana].gastos += parseFloat(g.monto || 0);
+        }
+      });
+
+    } else {
+      const mesesUnicos = new Set();
+      const currentDate = new Date(inicio);
+      while (currentDate <= fin) {
+        const mesLabel = `${mesesNombres[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
+        mesesUnicos.add(mesLabel);
+        currentDate.setMonth(currentDate.getMonth() + 1);
       }
-    });
 
-    gastos.forEach(g => {
-      const fecha = new Date(g.created_at);
-      const dia = diasSemana[fecha.getDay()];
-      if (ventasPorDia[dia]) {
-        ventasPorDia[dia].gastos += parseFloat(g.monto || 0);
-      }
-    });
+      Array.from(mesesUnicos).forEach(mes => {
+        agrupacion[mes] = { dia: mes, ventas: 0, compras: 0, gastos: 0 };
+        labels.push(mes);
+      });
 
-    // Retornar en orden Lunes a Domingo
-    return diasOrdenados.map(dia => ventasPorDia[dia]);
+      ventas.forEach(v => {
+        const fecha = new Date(v.created_at);
+        const mesLabel = `${mesesNombres[fecha.getMonth()]} ${fecha.getFullYear()}`;
+        if (agrupacion[mesLabel]) {
+          agrupacion[mesLabel].ventas += parseFloat(v.total || 0);
+        }
+      });
+
+      compras.forEach(c => {
+        const fecha = new Date(c.created_at);
+        const mesLabel = `${mesesNombres[fecha.getMonth()]} ${fecha.getFullYear()}`;
+        if (agrupacion[mesLabel]) {
+          agrupacion[mesLabel].compras += parseFloat(c.costo_total || 0);
+        }
+      });
+
+      gastos.forEach(g => {
+        const fecha = new Date(g.created_at);
+        const mesLabel = `${mesesNombres[fecha.getMonth()]} ${fecha.getFullYear()}`;
+        if (agrupacion[mesLabel]) {
+          agrupacion[mesLabel].gastos += parseFloat(g.monto || 0);
+        }
+      });
+    }
+
+    return labels.map(label => agrupacion[label]);
   };
 
   const getTendenciaAcumulada = (ventas) => {
@@ -986,7 +1106,13 @@ const Dashboard = () => {
         {/* Gráficos */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">Ventas vs Compras vs Gastos (Última Semana)</h3>
+            <h3 className="text-lg font-bold text-gray-800 mb-4">
+  Ventas vs Compras vs Gastos 
+  {dateRange === 'today' && ' (Hoy)'}
+  {dateRange === 'week' && ' (Última Semana)'}
+  {dateRange === 'month' && ' (Este Mes)'}
+  {dateRange === 'custom' && ' (Período Personalizado)'}
+</h3>
 
             {/* VERSIÓN DESKTOP - Gráfico de Barras */}
             <div className="hidden md:block">
@@ -994,8 +1120,7 @@ const Dashboard = () => {
                 <BarChart data={dashboardData.ventasSemanales}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="dia" />
-                  <YAxis />
-                  <Tooltip formatter={(value) => formatCurrency(value)} />
+                  <YAxis domain={[0, (dataMax) => Math.ceil(dataMax * 1.2)]} />                  <Tooltip formatter={(value) => formatCurrency(value)} />
                   <Legend />
                   <Bar dataKey="ventas" fill="#10b981" name="Ventas" />
                   <Bar dataKey="compras" fill="#3b82f6" name="Compras" />

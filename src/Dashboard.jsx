@@ -215,6 +215,9 @@ const Dashboard = () => {
         .is('deleted_at', null);
 
       if (productosError) throw productosError;
+      // 👇 DEBUGGING: Verificar si stock_inicial existe
+      console.log('📦 Primer producto completo:', productos[0]);
+      console.log('🔍 ¿Tiene stock_inicial?', productos[0]?.stock_inicial);
 
       setAllProductos(productos);
       setGastosDelPeriodo(gastos);
@@ -653,8 +656,7 @@ const Dashboard = () => {
         const { error: updateError } = await supabase
           .from('productos')
           .update({ 
-            stock_actual: stockContado,
-            stock_inicial: stockContado
+            stock_actual: stockContado 
           })
           .eq('producto_id', producto.producto_id)
           .eq('tenant_id', tenantId);
@@ -1346,7 +1348,6 @@ const Dashboard = () => {
                               <th className="px-4 py-2 text-left font-semibold text-yellow-900">Código</th>
                               <th className="px-4 py-2 text-left font-semibold text-yellow-900">Producto</th>
                               <th className="px-4 py-2 text-center font-semibold text-yellow-900">Stock Esperado</th>
-                              <th className="px-4 py-2 text-center font-semibold text-yellow-900">Stock Inicial</th>
                               <th className="px-4 py-2 text-center font-semibold text-yellow-900">Unidad</th>
                               <th className="px-4 py-2 text-center font-semibold text-yellow-900">Stock Contado *</th>
                               <th className="px-4 py-2 text-center font-semibold text-yellow-900">Diferencia</th>
@@ -1363,9 +1364,6 @@ const Dashboard = () => {
                                   <td className="px-4 py-2 text-gray-900">{producto.producto}</td>
                                   <td className="px-4 py-2 text-center text-gray-700">
                                     {Math.round(parseFloat(producto.stock_actual || 0))}
-                                  </td>
-                                  <td className="px-4 py-2 text-center text-gray-700">
-                                    {Math.round(parseFloat(producto.stock_inicial || 0))}
                                   </td>
                                   <td className="px-4 py-2 text-center font-semibold text-gray-700">
                                     {unidad}

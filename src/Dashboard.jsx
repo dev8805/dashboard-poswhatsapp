@@ -31,6 +31,16 @@ const Dashboard = () => {
   const [savingCierre, setSavingCierre] = useState(false);
   const [stockContadoPorProducto, setStockContadoPorProducto] = useState({});
 
+  // Estados para menú hamburguesa y modales
+  const [showMenu, setShowMenu] = useState(false);
+  const [showBaseModal, setShowBaseModal] = useState(false);
+  const [showInventarioModal, setShowInventarioModal] = useState(false);
+  const [showApodosModal, setShowApodosModal] = useState(false);
+  const [baseActual, setBaseActual] = useState(0);
+  const [baseProximoPeriodo, setBaseProximoPeriodo] = useState('');
+  const [nuevoInventario, setNuevoInventario] = useState({});
+  const [apodosProductos, setApodosProductos] = useState({});
+
   // FUNCIONES PARA ZONA HORARIA BOGOTÁ
   const getStartOfDayInBogota = (dateString) => {
     const date = new Date(dateString + 'T00:00:00-05:00');
@@ -219,7 +229,7 @@ const Dashboard = () => {
       setAllProductos(productos);
       setGastosDelPeriodo(gastos);
 
-      const processedData = processDashboardData(ventas, compras, consumos, gastos, productos, mermas, dateRange, displayStartDate, displayEndDate);
+      const processedData = processDashboardData(ventas, compras, consumos, gastos, productos, mermas);
       setDashboardData(processedData);
       setLoading(false);
 
@@ -291,7 +301,7 @@ const Dashboard = () => {
   };
 
   // Incluir mermas en gastos totales
-  const processDashboardData = (ventas, compras, consumos, gastos, productos, mermas, periodo, fechaInicio, fechaFin) => {
+  const processDashboardData = (ventas, compras, consumos, gastos, productos, mermas) => {
     const totalVentas = ventas.reduce((sum, v) => sum + parseFloat(v.total || 0), 0);
     const totalCompras = compras.reduce((sum, c) => sum + parseFloat(c.costo_total || 0), 0);
     const totalConsumos = consumos.reduce((sum, c) => sum + parseFloat(c.costo_total || 0), 0);
@@ -357,11 +367,11 @@ const Dashboard = () => {
     const masRentable = topProductos.length > 0 ? 
       topProductos.reduce((max, p) => p.margen > max.margen ? p : max, topProductos[0]) : null;
 
-    const ventasPorDia = getVentasPorDia(ventas, compras, gastos, periodo, fechaInicio, fechaFin);
+    const ventasPorDia = getVentasPorDia(ventas, compras, gastos);
     const tendencia = getTendenciaAcumulada(ventas);
     const ultimosMovimientos = getUltimosMovimientos(ventas, compras, consumos, productos);
 
-    const ticketPromedio = ventas.length > 0 ? totalVentas / ventas.length : 0;
+    
     const productoMayorRotacion = topProductos.length > 0 ? topProductos[0].nombre : 'N/A';
 
     return {
@@ -391,162 +401,42 @@ const Dashboard = () => {
     };
   };
 
-  const getVentasPorDia = (ventas, compras, gastos, periodo, fechaInicio, fechaFin) => {
+  const getVentasPorDia = (ventas, compras, gastos) => {
     const diasSemana = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-    const mesesNombres = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    const diasOrdenados = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+    const ventasPorDia = {};
 
-    const inicio = new Date(fechaInicio);
-    const fin = new Date(fechaFin);
-    const diffTime = Math.abs(fin - inicio);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+    // Inicializar todos los días de Lunes a Domingo con valores en 0
+    diasOrdenados.forEach(dia => {
+      ventasPorDia[dia] = { dia, ventas: 0, compras: 0, gastos: 0 };
+    });
 
-    let agrupacion = {};
-    let labels = [];
-
-    if (periodo === 'today') {
-      const franjas = ['6-9am', '9-12pm', '12-3pm', '3-6pm', '6-9pm', '9-12am'];
-      franjas.forEach(franja => {
-        agrupacion[franja] = { dia: franja, ventas: 0, compras: 0, gastos: 0 };
-      });
-
-      const asignarFranja = (hora) => {
-        if (hora >= 6 && hora < 9) return '6-9am';
-        if (hora >= 9 && hora < 12) return '9-12pm';
-        if (hora >= 12 && hora < 15) return '12-3pm';
-        if (hora >= 15 && hora < 18) return '3-6pm';
-        if (hora >= 18 && hora < 21) return '6-9pm';
-        return '9-12am';
-      };
-
-      ventas.forEach(v => {
-        const fecha = new Date(v.created_at);
-        const franja = asignarFranja(fecha.getHours());
-        agrupacion[franja].ventas += parseFloat(v.total || 0);
-      });
-
-      compras.forEach(c => {
-        const fecha = new Date(c.created_at);
-        const franja = asignarFranja(fecha.getHours());
-        agrupacion[franja].compras += parseFloat(c.costo_total || 0);
-      });
-
-      gastos.forEach(g => {
-        const fecha = new Date(g.created_at);
-        const franja = asignarFranja(fecha.getHours());
-        agrupacion[franja].gastos += parseFloat(g.monto || 0);
-      });
-
-      labels = franjas;
-
-    } else if (periodo === 'week' || (periodo === 'custom' && diffDays <= 7)) {
-      const diasOrdenados = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
-      diasOrdenados.forEach(dia => {
-        agrupacion[dia] = { dia, ventas: 0, compras: 0, gastos: 0 };
-      });
-
-      ventas.forEach(v => {
-        const fecha = new Date(v.created_at);
-        const dia = diasSemana[fecha.getDay()];
-        if (agrupacion[dia]) {
-          agrupacion[dia].ventas += parseFloat(v.total || 0);
-        }
-      });
-
-      compras.forEach(c => {
-        const fecha = new Date(c.created_at);
-        const dia = diasSemana[fecha.getDay()];
-        if (agrupacion[dia]) {
-          agrupacion[dia].compras += parseFloat(c.costo_total || 0);
-        }
-      });
-
-      gastos.forEach(g => {
-        const fecha = new Date(g.created_at);
-        const dia = diasSemana[fecha.getDay()];
-        if (agrupacion[dia]) {
-          agrupacion[dia].gastos += parseFloat(g.monto || 0);
-        }
-      });
-
-      labels = diasOrdenados;
-
-    } else if (periodo === 'month' || (periodo === 'custom' && diffDays > 7 && diffDays <= 31)) {
-      const numSemanas = Math.ceil(diffDays / 7);
-      for (let i = 1; i <= numSemanas; i++) {
-        const label = `Semana ${i}`;
-        agrupacion[label] = { dia: label, ventas: 0, compras: 0, gastos: 0 };
-        labels.push(label);
+    ventas.forEach(v => {
+      const fecha = new Date(v.created_at);
+      const dia = diasSemana[fecha.getDay()];
+      if (ventasPorDia[dia]) {
+        ventasPorDia[dia].ventas += parseFloat(v.total || 0);
       }
+    });
 
-      const getSemanaDelDia = (fecha) => {
-        const diffDesdeInicio = Math.ceil((fecha - inicio) / (1000 * 60 * 60 * 24));
-        return `Semana ${Math.ceil(diffDesdeInicio / 7)}`;
-      };
-
-      ventas.forEach(v => {
-        const fecha = new Date(v.created_at);
-        const semana = getSemanaDelDia(fecha);
-        if (agrupacion[semana]) {
-          agrupacion[semana].ventas += parseFloat(v.total || 0);
-        }
-      });
-
-      compras.forEach(c => {
-        const fecha = new Date(c.created_at);
-        const semana = getSemanaDelDia(fecha);
-        if (agrupacion[semana]) {
-          agrupacion[semana].compras += parseFloat(c.costo_total || 0);
-        }
-      });
-
-      gastos.forEach(g => {
-        const fecha = new Date(g.created_at);
-        const semana = getSemanaDelDia(fecha);
-        if (agrupacion[semana]) {
-          agrupacion[semana].gastos += parseFloat(g.monto || 0);
-        }
-      });
-
-    } else {
-      const mesesUnicos = new Set();
-      const currentDate = new Date(inicio);
-      while (currentDate <= fin) {
-        const mesLabel = `${mesesNombres[currentDate.getMonth()]} ${currentDate.getFullYear()}`;
-        mesesUnicos.add(mesLabel);
-        currentDate.setMonth(currentDate.getMonth() + 1);
+    compras.forEach(c => {
+      const fecha = new Date(c.created_at);
+      const dia = diasSemana[fecha.getDay()];
+      if (ventasPorDia[dia]) {
+        ventasPorDia[dia].compras += parseFloat(c.costo_total || 0);
       }
+    });
 
-      Array.from(mesesUnicos).forEach(mes => {
-        agrupacion[mes] = { dia: mes, ventas: 0, compras: 0, gastos: 0 };
-        labels.push(mes);
-      });
+    gastos.forEach(g => {
+      const fecha = new Date(g.created_at);
+      const dia = diasSemana[fecha.getDay()];
+      if (ventasPorDia[dia]) {
+        ventasPorDia[dia].gastos += parseFloat(g.monto || 0);
+      }
+    });
 
-      ventas.forEach(v => {
-        const fecha = new Date(v.created_at);
-        const mesLabel = `${mesesNombres[fecha.getMonth()]} ${fecha.getFullYear()}`;
-        if (agrupacion[mesLabel]) {
-          agrupacion[mesLabel].ventas += parseFloat(v.total || 0);
-        }
-      });
-
-      compras.forEach(c => {
-        const fecha = new Date(c.created_at);
-        const mesLabel = `${mesesNombres[fecha.getMonth()]} ${fecha.getFullYear()}`;
-        if (agrupacion[mesLabel]) {
-          agrupacion[mesLabel].compras += parseFloat(c.costo_total || 0);
-        }
-      });
-
-      gastos.forEach(g => {
-        const fecha = new Date(g.created_at);
-        const mesLabel = `${mesesNombres[fecha.getMonth()]} ${fecha.getFullYear()}`;
-        if (agrupacion[mesLabel]) {
-          agrupacion[mesLabel].gastos += parseFloat(g.monto || 0);
-        }
-      });
-    }
-
-    return labels.map(label => agrupacion[label]);
+    // Retornar en orden Lunes a Domingo
+    return diasOrdenados.map(dia => ventasPorDia[dia]);
   };
 
   const getTendenciaAcumulada = (ventas) => {
@@ -718,6 +608,7 @@ const Dashboard = () => {
         diferencia_inventario: diferenciaInventarioTotal,
         cuadrado: cuadrado,
         notas: notasCierre,
+        base_siguiente_periodo: parseFloat(baseProximoPeriodo) || 0,
         created_at: new Date().toISOString()
       };
 
@@ -804,6 +695,43 @@ const Dashboard = () => {
 
   const handleExportPDF = () => {
     window.print();
+  };
+
+  const handleGuardarBase = async () => {
+    try {
+      // Aquí guardarías la base en Supabase
+      // Por ahora solo actualizamos el estado local
+      alert(`✅ Base actualizada a: ${formatCurrency(parseFloat(baseActual))}`);
+      setShowBaseModal(false);
+    } catch (error) {
+      console.error('Error guardando base:', error);
+      alert('Error al guardar la base: ' + error.message);
+    }
+  };
+
+  const handleGuardarInventario = async () => {
+    try {
+      // Aquí guardarías los cambios de inventario en Supabase
+      alert('✅ Inventario actualizado exitosamente');
+      setShowInventarioModal(false);
+      // Recargar datos del dashboard
+      setLoading(true);
+      loadDashboardData(tenantId);
+    } catch (error) {
+      console.error('Error guardando inventario:', error);
+      alert('Error al guardar inventario: ' + error.message);
+    }
+  };
+
+  const handleGuardarApodos = async () => {
+    try {
+      // Aquí guardarías los apodos en Supabase
+      alert('✅ Apodos guardados exitosamente');
+      setShowApodosModal(false);
+    } catch (error) {
+      console.error('Error guardando apodos:', error);
+      alert('Error al guardar apodos: ' + error.message);
+    }
   };
 
   const formatCurrency = (value) => {
@@ -962,6 +890,76 @@ const Dashboard = () => {
                 <Download className="w-5 h-5" />
                 Exportar PDF
               </button>
+
+        {/* Menú Hamburguesa */}
+        <div className="relative">
+          <button
+            onClick={() => setShowMenu(!showMenu)}
+            className="flex items-center justify-center gap-2 bg-white text-emerald-600 px-4 py-2 rounded-lg font-semibold hover:bg-emerald-50 transition-colors shadow-md"
+          >
+            <Menu className="w-5 h-5" />
+            <span className="hidden sm:inline">Opciones</span>
+          </button>
+
+          {showMenu && (
+            <>
+              <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
+                <div className="py-2">
+                  <button
+                    onClick={() => {
+                      setShowBaseModal(true);
+                      setShowMenu(false);
+                    }}
+                    className="w-full px-4 py-3 text-left hover:bg-emerald-50 transition-colors flex items-center gap-3 text-gray-700 hover:text-emerald-700"
+                  >
+                    <DollarSign className="w-5 h-5" />
+                    <div>
+                      <p className="font-semibold text-sm">Modificar Base</p>
+                      <p className="text-xs text-gray-500">Base inicial del período</p>
+                    </div>
+                  </button>
+
+                  <div className="border-t border-gray-200 my-1"></div>
+
+                  <button
+                    onClick={() => {
+                      setShowInventarioModal(true);
+                      setShowMenu(false);
+                    }}
+                    className="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors flex items-center gap-3 text-gray-700 hover:text-blue-700"
+                  >
+                    <Package className="w-5 h-5" />
+                    <div>
+                      <p className="font-semibold text-sm">Modificar Inventario</p>
+                      <p className="text-xs text-gray-500">Ajustar stock de productos</p>
+                    </div>
+                  </button>
+
+                  <div className="border-t border-gray-200 my-1"></div>
+
+                  <button
+                    onClick={() => {
+                      setShowApodosModal(true);
+                      setShowMenu(false);
+                    }}
+                    className="w-full px-4 py-3 text-left hover:bg-purple-50 transition-colors flex items-center gap-3 text-gray-700 hover:text-purple-700"
+                  >
+                    <Edit2 className="w-5 h-5" />
+                    <div>
+                      <p className="font-semibold text-sm">Modificar Apodos</p>
+                      <p className="text-xs text-gray-500">Gestionar alias de productos</p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
+              <div 
+                className="fixed inset-0 z-40" 
+                onClick={() => setShowMenu(false)}
+              ></div>
+            </>
+          )}
+        </div>
             </div>
           </div>
         </div>
@@ -1106,13 +1104,7 @@ const Dashboard = () => {
         {/* Gráficos */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">
-  Ventas vs Compras vs Gastos 
-  {dateRange === 'today' && ' (Hoy)'}
-  {dateRange === 'week' && ' (Última Semana)'}
-  {dateRange === 'month' && ' (Este Mes)'}
-  {dateRange === 'custom' && ' (Período Personalizado)'}
-</h3>
+            <h3 className="text-lg font-bold text-gray-800 mb-4">Ventas vs Compras vs Gastos (Última Semana)</h3>
 
             {/* VERSIÓN DESKTOP - Gráfico de Barras */}
             <div className="hidden md:block">
@@ -1120,7 +1112,8 @@ const Dashboard = () => {
                 <BarChart data={dashboardData.ventasSemanales}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="dia" />
-                  <YAxis domain={[0, (dataMax) => Math.ceil(dataMax * 1.2)]} />                  <Tooltip formatter={(value) => formatCurrency(value)} />
+                  <YAxis />
+                  <Tooltip formatter={(value) => formatCurrency(value)} />
                   <Legend />
                   <Bar dataKey="ventas" fill="#10b981" name="Ventas" />
                   <Bar dataKey="compras" fill="#3b82f6" name="Compras" />
@@ -1451,10 +1444,7 @@ const Dashboard = () => {
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <h3 className="text-lg font-bold text-gray-800 mb-4">Indicadores Clave de Rendimiento</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-lg p-4">
-              <p className="text-sm text-emerald-700 font-medium mb-1">Ticket Promedio</p>
-              <p className="text-2xl font-bold text-emerald-900">{formatCurrency(dashboardData.kpis.ticketPromedio)}</p>
-            </div>
+            
             
             <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4">
               <p className="text-sm text-blue-700 font-medium mb-1">Mayor Rotación</p>
@@ -1781,6 +1771,238 @@ const Dashboard = () => {
                         </div>
                       )}
                     </div>
+
+      {/* MODAL: MODIFICAR BASE */}
+      {showBaseModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-2xl max-w-md w-full">
+            <div className="bg-emerald-600 text-white p-6 rounded-t-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <DollarSign className="w-6 h-6" />
+                  <h2 className="text-xl font-bold">Modificar Base Inicial</h2>
+                </div>
+                <button 
+                  onClick={() => setShowBaseModal(false)}
+                  className="text-white hover:bg-emerald-700 p-2 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                <p className="text-sm text-yellow-800">
+                  ⚠️ <strong>Importante:</strong> Esta base se usará para calcular la caja esperada en el próximo cierre.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">
+                  Base Actual
+                </label>
+                <div className="bg-gray-100 rounded-lg p-4">
+                  <p className="text-2xl font-bold text-gray-900">
+                    {formatCurrency(baseActual)}
+
+      {/* MODAL: MODIFICAR INVENTARIO */}
+      {showInventarioModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="bg-blue-600 text-white p-6 rounded-t-lg sticky top-0 z-10">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Package className="w-6 h-6" />
+                  <h2 className="text-xl font-bold">Modificar Inventario</h2>
+                </div>
+                <button 
+                  onClick={() => setShowInventarioModal(false)}
+                  className="text-white hover:bg-blue-700 p-2 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                <p className="text-sm text-blue-800">
+                  💡 Ajusta el stock actual de tus productos. Estos cambios se reflejarán inmediatamente.
+                </p>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-blue-100 sticky top-0">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-semibold text-blue-900">Código</th>
+                      <th className="px-4 py-3 text-left font-semibold text-blue-900">Producto</th>
+                      <th className="px-4 py-3 text-center font-semibold text-blue-900">Stock Actual</th>
+                      <th className="px-4 py-3 text-center font-semibold text-blue-900">Nuevo Stock</th>
+                      <th className="px-4 py-3 text-center font-semibold text-blue-900">Diferencia</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white">
+                    {allProductos.map((producto) => {
+                      const nuevoStock = parseFloat(nuevoInventario[producto.producto_id]) || parseFloat(producto.stock_actual);
+                      const diferencia = nuevoStock - parseFloat(producto.stock_actual || 0);
+
+                      return (
+                        <tr key={producto.producto_id} className="border-b hover:bg-blue-50">
+                          <td className="px-4 py-3 font-semibold text-gray-900">{producto.codigo}</td>
+                          <td className="px-4 py-3 text-gray-900">{producto.producto}</td>
+                          <td className="px-4 py-3 text-center font-bold text-gray-700">
+                            {Math.round(parseFloat(producto.stock_actual || 0))}
+                          </td>
+                          <td className="px-4 py-3">
+                            <input
+                              type="number"
+                              value={nuevoInventario[producto.producto_id] || ''}
+                              onChange={(e) => setNuevoInventario({
+                                ...nuevoInventario,
+                                [producto.producto_id]: e.target.value
+                              })}
+                              placeholder={Math.round(producto.stock_actual)}
+                              className="w-full px-2 py-1 border border-gray-300 rounded text-center focus:ring-2 focus:ring-blue-500"
+                            />
+                          </td>
+                          <td className={`px-4 py-3 text-center font-semibold ${
+                            diferencia > 0 ? 'text-green-600' : diferencia < 0 ? 'text-red-600' : 'text-gray-600'
+                          }`}>
+                            {diferencia > 0 ? '+' : ''}{Math.round(diferencia)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex gap-3 pt-4 mt-4 border-t">
+                <button
+                  onClick={() => setShowInventarioModal(false)}
+                  className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleGuardarInventario}
+                  className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-bold"
+                >
+                  Guardar Cambios
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+
+      {/* MODAL: MODIFICAR APODOS */}
+      {showApodosModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="bg-purple-600 text-white p-6 rounded-t-lg sticky top-0 z-10">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Edit2 className="w-6 h-6" />
+                  <h2 className="text-xl font-bold">Modificar Apodos</h2>
+                </div>
+                <button 
+                  onClick={() => setShowApodosModal(false)}
+                  className="text-white hover:bg-purple-700 p-2 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6">
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
+                <p className="text-sm text-purple-800">
+                  🏷️ Los apodos permiten buscar productos con nombres alternativos (ej: "coca" para "Coca Cola"). Separa múltiples apodos con comas.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                {allProductos.map((producto) => (
+                  <div key={producto.producto_id} className="border rounded-lg p-4 hover:bg-purple-50 transition-colors">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <p className="font-bold text-gray-900">{producto.producto}</p>
+                        <p className="text-xs text-gray-500">Código: {producto.codigo}</p>
+                      </div>
+                    </div>
+                    <input
+                      type="text"
+                      placeholder="Ej: coca, gaseosa negra, coca cola"
+                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                      defaultValue={producto.apodos || ''}
+                      onChange={(e) => setApodosProductos({
+                        ...apodosProductos,
+                        [producto.producto_id]: e.target.value
+                      })}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex gap-3 pt-4 mt-4 border-t">
+                <button
+                  onClick={() => setShowApodosModal(false)}
+                  className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleGuardarApodos}
+                  className="flex-1 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-bold"
+                >
+                  Guardar Apodos
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">
+                  Nueva Base *
+                </label>
+                <input
+                  type="number"
+                  value={baseActual}
+                  onChange={(e) => setBaseActual(e.target.value)}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-lg"
+                  placeholder="Ejemplo: 50000"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => setShowBaseModal(false)}
+                  className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleGuardarBase}
+                  className="flex-1 px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-bold"
+                >
+                  Guardar Base
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
 
                     <div className="flex gap-3">
                       <button

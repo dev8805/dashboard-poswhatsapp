@@ -393,7 +393,6 @@ const Dashboard = () => {
         masRentable: masRentable ? `${masRentable.nombre} (${masRentable.margen}% margen)` : 'N/A'
       },
       kpis: {
-        ticketPromedio: ticketPromedio,
         mayorRotacion: productoMayorRotacion,
         masRentable: masRentable ? masRentable.nombre : 'N/A',
         variacion: 0

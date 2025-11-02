@@ -430,7 +430,7 @@ const Dashboard = () => {
   };
 
   const getTendenciaAcumulada = (ventas) => {
-    const dias = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    const dias = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
     const ventasPorDia = {};
     let acumulado = 0;
 

@@ -1339,59 +1339,134 @@ const Dashboard = () => {
                         Cuente físicamente cada producto y escriba la cantidad en la columna "Stock Contado"
                       </p>
                       
-                      <div className="overflow-x-auto max-h-96 overflow-y-auto">
-                        <table className="w-full text-sm">
-                          <thead className="bg-yellow-100 sticky top-0">
-                            <tr>
-                              <th className="px-4 py-2 text-left font-semibold text-yellow-900">Código</th>
-                              <th className="px-4 py-2 text-left font-semibold text-yellow-900">Producto</th>
-                              <th className="px-4 py-2 text-center font-semibold text-yellow-900 bg-yellow-200">Stock Inicial</th>
-                              <th className="px-4 py-2 text-center font-semibold text-yellow-900">Stock Esperado</th>
-                              <th className="px-4 py-2 text-center font-semibold text-yellow-900">Unidad</th>
-                              <th className="px-4 py-2 text-center font-semibold text-yellow-900">Stock Contado *</th>
-                              <th className="px-4 py-2 text-center font-semibold text-yellow-900">Diferencia</th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white">
-                            {allProductos.map((producto) => {
-                              const stockContado = parseFloat(stockContadoPorProducto[producto.producto_id]) || 0;
-                              const diferencia = stockContado - parseFloat(producto.stock_actual || 0);
-                              const unidad = producto.unidad_peso || 'und';
-                              return (
-                                <tr key={producto.producto_id} className="border-b border-yellow-200 hover:bg-yellow-50">
-                                  <td className="px-4 py-2 font-semibold text-gray-900">{producto.codigo}</td>
-                                  <td className="px-4 py-2 text-gray-900">{producto.producto}</td>
-                                  <td className="px-4 py-2 text-center text-gray-900 font-bold bg-blue-50">
-                                    {parseFloat(producto.stock_inicial || 0).toFixed(0)}
-                                  </td>
-                                  <td className="px-4 py-2 text-center text-gray-700">
-                                    {Math.round(parseFloat(producto.stock_actual || 0))}
-                                  </td>
-                                  <td className="px-4 py-2 text-center font-semibold text-gray-700">
-                                    {unidad}
-                                  </td>
-                                  <td className="px-4 py-2">
-                                    <input
-                                      type="number"
-                                      value={stockContadoPorProducto[producto.producto_id] || ''}
-                                      onChange={(e) => setStockContadoPorProducto({
-                                        ...stockContadoPorProducto,
-                                        [producto.producto_id]: e.target.value
-                                      })}
-                                      placeholder="0"
-                                      className="w-full px-2 py-1 border border-gray-300 rounded text-center focus:ring-2 focus:ring-yellow-500"
-                                    />
-                                  </td>
-                                  <td className={`px-4 py-2 text-center font-semibold ${
-                                    diferencia > 0 ? 'text-green-600' : diferencia < 0 ? 'text-red-600' : 'text-gray-600'
-                                  }`}>
-                                    {diferencia > 0 ? '+' : ''}{diferencia}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
+                      <div>
+                        {/* VERSIÓN DESKTOP - Tabla */}
+                        <div className="hidden md:block overflow-x-auto max-h-96 overflow-y-auto">
+                          <table className="w-full text-sm">
+                            <thead className="bg-yellow-100 sticky top-0">
+                              <tr>
+                                <th className="px-4 py-2 text-left font-semibold text-yellow-900">Código</th>
+                                <th className="px-4 py-2 text-left font-semibold text-yellow-900">Producto</th>
+                                <th className="px-4 py-2 text-center font-semibold text-yellow-900 bg-yellow-200">Stock Inicial</th>
+                                <th className="px-4 py-2 text-center font-semibold text-yellow-900">Stock Esperado</th>
+                                <th className="px-4 py-2 text-center font-semibold text-yellow-900">Unidad</th>
+                                <th className="px-4 py-2 text-center font-semibold text-yellow-900">Stock Contado *</th>
+                                <th className="px-4 py-2 text-center font-semibold text-yellow-900">Diferencia</th>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white">
+                              {allProductos.map((producto) => {
+                                const stockContado = parseFloat(stockContadoPorProducto[producto.producto_id]) || 0;
+                                const diferencia = stockContado - parseFloat(producto.stock_actual || 0);
+                                const unidad = producto.unidad_peso || 'und';
+                                return (
+                                  <tr key={producto.producto_id} className="border-b border-yellow-200 hover:bg-yellow-50">
+                                    <td className="px-4 py-2 font-semibold text-gray-900">{producto.codigo}</td>
+                                    <td className="px-4 py-2 text-gray-900">{producto.producto}</td>
+                                    <td className="px-4 py-2 text-center text-gray-900 font-bold bg-blue-50">
+                                      {parseFloat(producto.stock_inicial || 0).toFixed(0)}
+                                    </td>
+                                    <td className="px-4 py-2 text-center text-gray-700">
+                                      {Math.round(parseFloat(producto.stock_actual || 0))}
+                                    </td>
+                                    <td className="px-4 py-2 text-center font-semibold text-gray-700">
+                                      {unidad}
+                                    </td>
+                                    <td className="px-4 py-2">
+                                      <input
+                                        type="number"
+                                        value={stockContadoPorProducto[producto.producto_id] || ''}
+                                        onChange={(e) => setStockContadoPorProducto({
+                                          ...stockContadoPorProducto,
+                                          [producto.producto_id]: e.target.value
+                                        })}
+                                        placeholder="0"
+                                        className="w-full px-2 py-1 border border-gray-300 rounded text-center focus:ring-2 focus:ring-yellow-500"
+                                      />
+                                    </td>
+                                    <td className={`px-4 py-2 text-center font-semibold ${
+                                      diferencia > 0 ? 'text-green-600' : diferencia < 0 ? 'text-red-600' : 'text-gray-600'
+                                    }`}>
+                                      {diferencia > 0 ? '+' : ''}{diferencia}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        {/* VERSIÓN MÓVIL - Tarjetas */}
+                        <div className="block md:hidden max-h-96 overflow-y-auto space-y-3">
+                          {allProductos.map((producto) => {
+                            const stockContado = parseFloat(stockContadoPorProducto[producto.producto_id]) || 0;
+                            const diferencia = stockContado - parseFloat(producto.stock_actual || 0);
+                            const unidad = producto.unidad_peso || 'und';
+
+                            return (
+                              <div key={producto.producto_id} className="bg-white border-2 border-yellow-200 rounded-lg p-4 shadow-sm hover:bg-yellow-50 transition-colors">
+                                {/* Header con código */}
+                                <div className="flex items-start justify-between mb-3">
+                                  <div className="flex-1">
+                                    <div className="text-xs font-bold text-yellow-900 bg-yellow-100 px-2 py-1 rounded inline-block mb-2">
+                                      {producto.codigo}
+                                    </div>
+                                    <h4 className="text-base font-bold text-gray-900">{producto.producto}</h4>
+                                  </div>
+                                </div>
+
+                                {/* Información de stocks */}
+                                <div className="grid grid-cols-3 gap-2 mb-3 text-center">
+                                  <div className="bg-blue-50 rounded p-2">
+                                    <p className="text-xs text-blue-700 font-medium">Inicial</p>
+                                    <p className="text-sm font-bold text-blue-900">
+                                      {parseFloat(producto.stock_inicial || 0).toFixed(0)}
+                                    </p>
+                                  </div>
+                                  <div className="bg-gray-50 rounded p-2">
+                                    <p className="text-xs text-gray-700 font-medium">Esperado</p>
+                                    <p className="text-sm font-bold text-gray-900">
+                                      {Math.round(parseFloat(producto.stock_actual || 0))}
+                                    </p>
+                                  </div>
+                                  <div className="bg-yellow-50 rounded p-2">
+                                    <p className="text-xs text-yellow-700 font-medium">Unidad</p>
+                                    <p className="text-sm font-bold text-yellow-900">{unidad}</p>
+                                  </div>
+                                </div>
+
+                                {/* Input de stock contado */}
+                                <div className="mb-3">
+                                  <label className="block text-sm font-bold text-yellow-900 mb-2">
+                                    📦 Stock Contado *
+                                  </label>
+                                  <input
+                                    type="number"
+                                    value={stockContadoPorProducto[producto.producto_id] || ''}
+                                    onChange={(e) => setStockContadoPorProducto({
+                                      ...stockContadoPorProducto,
+                                      [producto.producto_id]: e.target.value
+                                    })}
+                                    placeholder="Ingrese cantidad"
+                                    className="w-full px-4 py-3 text-lg border-2 border-yellow-300 rounded-lg text-center focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+                                  />
+                                </div>
+
+                                {/* Diferencia */}
+                                <div className={`text-center py-2 rounded-lg font-bold ${
+                                  diferencia > 0 ? 'bg-green-100 text-green-700' : 
+                                  diferencia < 0 ? 'bg-red-100 text-red-700' : 
+                                  'bg-gray-100 text-gray-700'
+                                }`}>
+                                  <span className="text-xs">Diferencia: </span>
+                                  <span className="text-lg">
+                                    {diferencia > 0 ? '+' : ''}{diferencia} {unidad}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
 

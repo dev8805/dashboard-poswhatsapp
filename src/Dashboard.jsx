@@ -392,19 +392,18 @@ const Dashboard = () => {
   };
 
   const getVentasPorDia = (ventas, compras, gastos) => {
-    const dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+    const diasSemana = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+    const diasOrdenados = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
     const ventasPorDia = {};
 
-    for (let i = 6; i >= 0; i--) {
-      const fecha = new Date();
-      fecha.setDate(fecha.getDate() - i);
-      const dia = dias[fecha.getDay()];
+    // Inicializar todos los días de Lunes a Domingo con valores en 0
+    diasOrdenados.forEach(dia => {
       ventasPorDia[dia] = { dia, ventas: 0, compras: 0, gastos: 0 };
-    }
+    });
 
     ventas.forEach(v => {
       const fecha = new Date(v.created_at);
-      const dia = dias[fecha.getDay()];
+      const dia = diasSemana[fecha.getDay()];
       if (ventasPorDia[dia]) {
         ventasPorDia[dia].ventas += parseFloat(v.total || 0);
       }
@@ -412,7 +411,7 @@ const Dashboard = () => {
 
     compras.forEach(c => {
       const fecha = new Date(c.created_at);
-      const dia = dias[fecha.getDay()];
+      const dia = diasSemana[fecha.getDay()];
       if (ventasPorDia[dia]) {
         ventasPorDia[dia].compras += parseFloat(c.costo_total || 0);
       }
@@ -420,17 +419,18 @@ const Dashboard = () => {
 
     gastos.forEach(g => {
       const fecha = new Date(g.created_at);
-      const dia = dias[fecha.getDay()];
+      const dia = diasSemana[fecha.getDay()];
       if (ventasPorDia[dia]) {
         ventasPorDia[dia].gastos += parseFloat(g.monto || 0);
       }
     });
 
-    return Object.values(ventasPorDia);
+    // Retornar en orden Lunes a Domingo
+    return diasOrdenados.map(dia => ventasPorDia[dia]);
   };
 
   const getTendenciaAcumulada = (ventas) => {
-    const dias = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+    const dias = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
     const ventasPorDia = {};
     let acumulado = 0;
 

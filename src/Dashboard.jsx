@@ -1260,19 +1260,19 @@ const Dashboard = () => {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-lg shadow-2xl max-w-6xl w-full max-h-[95vh] overflow-y-auto">
               {/* Header del Modal */}
-              <div className="bg-emerald-600 text-white p-6 rounded-t-lg sticky top-0 z-10">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-2xl font-bold">Cierre del Período</h2>
-                    <p className="text-emerald-100 mt-1">
+              <div className="bg-emerald-600 text-white p-4 sm:p-6 rounded-t-lg sticky top-0 z-10">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <h2 className="text-xl sm:text-2xl font-bold">Cierre del Período</h2>
+                    <p className="text-emerald-100 text-sm sm:text-base mt-2">
                       {formatDateToDisplay(currentDateRange.start)} - {formatDateToDisplay(currentDateRange.end)}
                     </p>
                   </div>
                   <button 
                     onClick={() => setShowCierreModal(false)}
-                    className="text-white hover:bg-emerald-700 p-2 rounded-lg transition-colors"
+                    className="text-white hover:bg-emerald-700 p-2 rounded-lg transition-colors flex-shrink-0"
                   >
-                    <X className="w-6 h-6" />
+                    <X className="w-5 h-5 sm:w-6 sm:h-6" />
                   </button>
                 </div>
               </div>

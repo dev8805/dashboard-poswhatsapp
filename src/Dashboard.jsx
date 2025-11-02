@@ -392,7 +392,7 @@ const Dashboard = () => {
   };
 
   const getVentasPorDia = (ventas, compras, gastos) => {
-    const dias = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+    const dias = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
     const ventasPorDia = {};
 
     for (let i = 6; i >= 0; i--) {
@@ -987,18 +987,39 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <div className="bg-white rounded-lg shadow-md p-6">
             <h3 className="text-lg font-bold text-gray-800 mb-4">Ventas vs Compras vs Gastos (Última Semana)</h3>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={dashboardData.ventasSemanales}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="dia" />
-                <YAxis />
-                <Tooltip formatter={(value) => formatCurrency(value)} />
-                <Legend />
-                <Bar dataKey="ventas" fill="#10b981" name="Ventas" />
-                <Bar dataKey="compras" fill="#3b82f6" name="Compras" />
-                <Bar dataKey="gastos" fill="#f59e0b" name="Gastos" />
-              </BarChart>
-            </ResponsiveContainer>
+            <div className="w-full" style={{ height: window.innerWidth < 768 ? '250px' : '300px' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={dashboardData.ventasSemanales}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis 
+                    dataKey="dia"
+                    angle={window.innerWidth < 768 ? -45 : 0}
+                    textAnchor={window.innerWidth < 768 ? "end" : "middle"}
+                    height={window.innerWidth < 768 ? 70 : 30}
+                    tick={{ fontSize: window.innerWidth < 768 ? 11 : 12 }}
+                    interval={0}
+                  />
+                  <YAxis 
+                    tick={{ fontSize: window.innerWidth < 768 ? 10 : 12 }}
+                    width={window.innerWidth < 768 ? 45 : 60}
+                  />
+                  <Tooltip 
+                    formatter={(value) => formatCurrency(value)}
+                    contentStyle={{ fontSize: window.innerWidth < 768 ? '12px' : '14px' }}
+                  />
+                  <Legend 
+                    wrapperStyle={{ 
+                      fontSize: window.innerWidth < 768 ? '11px' : '14px',
+                      paddingTop: window.innerWidth < 768 ? '10px' : '5px'
+                    }}
+                    iconSize={window.innerWidth < 768 ? 10 : 14}
+                  />
+                  <Bar dataKey="ventas" fill="#10b981" name="Ventas" />
+                  <Bar dataKey="compras" fill="#3b82f6" name="Compras" />
+                  <Bar dataKey="gastos" fill="#f59e0b" name="Gastos" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </div>
 
           <div className="bg-white rounded-lg shadow-md p-6">

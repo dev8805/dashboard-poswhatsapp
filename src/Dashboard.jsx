@@ -392,7 +392,7 @@ const Dashboard = () => {
   };
 
   const getVentasPorDia = (ventas, compras, gastos) => {
-    const dias = ['L', 'M', 'M', 'J', 'V', 'S', 'D'];
+    const dias = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
     const ventasPorDia = {};
 
     for (let i = 6; i >= 0; i--) {
@@ -1006,9 +1006,9 @@ const Dashboard = () => {
 
             {/* VERSIÓN MÓVIL - Timeline Vertical */}
             <div className="block md:hidden space-y-4">
-              {dashboardData.ventasSemanales.slice().reverse().map((dia, index) => {
+              {dashboardData.ventasSemanales.map((dia, index) => {
                 const total = dia.ventas + dia.compras + dia.gastos;
-                const maxValor = Math.max(dia.ventas, dia.compras, dia.gastos);
+                const maxValor = Math.max(...dashboardData.ventasSemanales.map(d => Math.max(d.ventas, d.compras, d.gastos))) * 1.1;
                 const esMejorDia = dia.ventas === Math.max(...dashboardData.ventasSemanales.map(d => d.ventas));
 
                 return (
@@ -1022,9 +1022,7 @@ const Dashboard = () => {
                           </span>
                         )}
                       </div>
-                      <span className="text-sm font-semibold text-gray-600">
-                        Total: {formatCurrency(total)}
-                      </span>
+                      
                     </div>
 
                     <div className="space-y-2">

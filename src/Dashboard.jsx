@@ -987,38 +987,112 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
           <div className="bg-white rounded-lg shadow-md p-6">
             <h3 className="text-lg font-bold text-gray-800 mb-4">Ventas vs Compras vs Gastos (Última Semana)</h3>
-            <div className="w-full" style={{ height: window.innerWidth < 768 ? '250px' : '300px' }}>
-              <ResponsiveContainer width="100%" height="100%">
+
+            {/* VERSIÓN DESKTOP - Gráfico de Barras */}
+            <div className="hidden md:block">
+              <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={dashboardData.ventasSemanales}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis 
-                    dataKey="dia"
-                    angle={window.innerWidth < 768 ? -45 : 0}
-                    textAnchor={window.innerWidth < 768 ? "end" : "middle"}
-                    height={window.innerWidth < 768 ? 70 : 30}
-                    tick={{ fontSize: window.innerWidth < 768 ? 11 : 12 }}
-                    interval={0}
-                  />
-                  <YAxis 
-                    tick={{ fontSize: window.innerWidth < 768 ? 10 : 12 }}
-                    width={window.innerWidth < 768 ? 45 : 60}
-                  />
-                  <Tooltip 
-                    formatter={(value) => formatCurrency(value)}
-                    contentStyle={{ fontSize: window.innerWidth < 768 ? '12px' : '14px' }}
-                  />
-                  <Legend 
-                    wrapperStyle={{ 
-                      fontSize: window.innerWidth < 768 ? '11px' : '14px',
-                      paddingTop: window.innerWidth < 768 ? '10px' : '5px'
-                    }}
-                    iconSize={window.innerWidth < 768 ? 10 : 14}
-                  />
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="dia" />
+                  <YAxis />
+                  <Tooltip formatter={(value) => formatCurrency(value)} />
+                  <Legend />
                   <Bar dataKey="ventas" fill="#10b981" name="Ventas" />
                   <Bar dataKey="compras" fill="#3b82f6" name="Compras" />
                   <Bar dataKey="gastos" fill="#f59e0b" name="Gastos" />
                 </BarChart>
               </ResponsiveContainer>
+            </div>
+
+            {/* VERSIÓN MÓVIL - Timeline Vertical */}
+            <div className="block md:hidden space-y-4">
+              {dashboardData.ventasSemanales.slice().reverse().map((dia, index) => {
+                const total = dia.ventas + dia.compras + dia.gastos;
+                const maxValor = Math.max(dia.ventas, dia.compras, dia.gastos);
+                const esMejorDia = dia.ventas === Math.max(...dashboardData.ventasSemanales.map(d => d.ventas));
+
+                return (
+                  <div key={index} className="border-l-4 border-gray-300 pl-4 pb-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg font-bold text-gray-800">{dia.dia}</span>
+                        {esMejorDia && dia.ventas > 0 && (
+                          <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded-full font-semibold">
+                            💰 Mejor día
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-sm font-semibold text-gray-600">
+                        Total: {formatCurrency(total)}
+                      </span>
+                    </div>
+
+                    <div className="space-y-2">
+                      {/* Ventas */}
+                      {dia.ventas > 0 && (
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-medium text-gray-600">💰 Ventas</span>
+                            <span className="text-sm font-bold text-gray-900">{formatCurrency(dia.ventas)}</span>
+                          </div>
+                          <div className="w-full bg-gray-100 rounded-full h-2.5">
+                            <div 
+                              className="h-2.5 rounded-full transition-all duration-300"
+                              style={{ 
+                                width: `${(dia.ventas / maxValor) * 100}%`,
+                                backgroundColor: '#10b981'
+                              }}
+                            ></div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Compras */}
+                      {dia.compras > 0 && (
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-medium text-gray-600">🛒 Compras</span>
+                            <span className="text-sm font-bold text-gray-900">{formatCurrency(dia.compras)}</span>
+                          </div>
+                          <div className="w-full bg-gray-100 rounded-full h-2.5">
+                            <div 
+                              className="h-2.5 rounded-full transition-all duration-300"
+                              style={{ 
+                                width: `${(dia.compras / maxValor) * 100}%`,
+                                backgroundColor: '#3b82f6'
+                              }}
+                            ></div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Gastos */}
+                      {dia.gastos > 0 && (
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-medium text-gray-600">📦 Gastos</span>
+                            <span className="text-sm font-bold text-gray-900">{formatCurrency(dia.gastos)}</span>
+                          </div>
+                          <div className="w-full bg-gray-100 rounded-full h-2.5">
+                            <div 
+                              className="h-2.5 rounded-full transition-all duration-300"
+                              style={{ 
+                                width: `${(dia.gastos / maxValor) * 100}%`,
+                                backgroundColor: '#f59e0b'
+                              }}
+                            ></div>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Mensaje cuando no hay actividad */}
+                      {dia.ventas === 0 && dia.compras === 0 && dia.gastos === 0 && (
+                        <p className="text-sm text-gray-400 italic">Sin actividad registrada</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
 

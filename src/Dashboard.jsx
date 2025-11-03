@@ -788,7 +788,7 @@ const Dashboard = () => {
 
   const gastosPorCategoria = {};
   gastosDelPeriodo.forEach(gasto => {
-    const categoria = gasto.tipo_gasto || 'Sin categoría';
+    const categoria = gasto.categoria || 'Sin categoría';
     if (!gastosPorCategoria[categoria]) {
       gastosPorCategoria[categoria] = 0;
     }
@@ -1333,33 +1333,61 @@ const Dashboard = () => {
           </div>
 
           <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">Top 5 Productos Más Vendidos</h3>
-            {dashboardData.productosChart.length > 0 ? (
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={dashboardData.productosChart}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ nombre, porcentaje }) => `${nombre} ${porcentaje}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="valor"
-                  >
-                    {dashboardData.productosChart.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value) => formatCurrency(value)} />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="flex items-center justify-center h-[300px] text-gray-500">
-                No hay datos de productos para mostrar
+  <h3 className="text-lg font-bold text-gray-800 mb-4">🏆 Top 5 Productos Mayor Rotación</h3>
+  {dashboardData.topProductos && dashboardData.topProductos.length > 0 ? (
+    <div className="space-y-4">
+      {dashboardData.topProductos.slice(0, 5).map((producto, index) => {
+        const porcentaje = dashboardData.resumen.ventas > 0 
+          ? Math.round((producto.total / dashboardData.resumen.ventas) * 100) 
+          : 0;
+        
+        // Emojis de medallas
+        const medallas = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'];
+        const coloresBarra = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ef4444'];
+        
+        return (
+          <div key={index} className="border-b border-gray-100 pb-4 last:border-b-0">
+            {/* Header con medalla y nombre */}
+            <div className="flex items-start gap-2 mb-2">
+              <span className="text-2xl">{medallas[index]}</span>
+              <div className="flex-1">
+                <p className="font-bold text-gray-900 text-base">
+                  {index + 1}. {producto.nombre}
+                </p>
+                <p className="text-sm text-gray-600">
+                  Vendidos: <span className="font-semibold">{producto.vendidos} und</span>
+                </p>
               </div>
-            )}
+            </div>
+
+            {/* Barra de progreso con valor y porcentaje */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between text-sm mb-1">
+                <span className="font-bold text-gray-900">{formatCurrency(producto.total)}</span>
+                <span className="font-semibold text-gray-600">{porcentaje}%</span>
+              </div>
+              
+              <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
+                <div 
+                  className="h-3 rounded-full transition-all duration-500 ease-out"
+                  style={{ 
+                    width: `${porcentaje}%`,
+                    backgroundColor: coloresBarra[index]
+                  }}
+                ></div>
+              </div>
+            </div>
           </div>
+        );
+      })}
+    </div>
+  ) : (
+    <div className="flex flex-col items-center justify-center h-[300px] text-gray-500">
+      <Package className="w-16 h-16 mb-2 opacity-50" />
+      <p>No hay datos de productos para mostrar</p>
+    </div>
+  )}
+</div>
         </div>
 
 

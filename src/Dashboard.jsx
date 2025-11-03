@@ -890,75 +890,105 @@ const Dashboard = () => {
                 Exportar PDF
               </button>
 
-        {/* Menú Hamburguesa */}
-        <div className="relative">
-          <button
-            onClick={() => setShowMenu(!showMenu)}
-            className="flex items-center justify-center gap-2 bg-white text-emerald-600 px-4 py-2 rounded-lg font-semibold hover:bg-emerald-50 transition-colors shadow-md"
-          >
-            <Menu className="w-5 h-5" />
-            <span className="hidden sm:inline">Opciones</span>
-          </button>
+        <div className="flex items-center gap-3">
+  {/* Menú Hamburguesa - AHORA PRIMERO */}
+  <div className="relative">
+    <button
+      onClick={() => setShowMenu(!showMenu)}
+      className="flex items-center justify-center gap-2 bg-white text-emerald-600 px-4 py-2 rounded-lg font-semibold hover:bg-emerald-50 transition-colors shadow-md"
+    >
+      <Menu className="w-5 h-5" />
+      <span className="hidden sm:inline">Opciones</span>
+    </button>
 
-          {showMenu && (
-            <>
-              <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
-                <div className="py-2">
-                  <button
-                    onClick={() => {
-                      setShowBaseModal(true);
-                      setShowMenu(false);
-                    }}
-                    className="w-full px-4 py-3 text-left hover:bg-emerald-50 transition-colors flex items-center gap-3 text-gray-700 hover:text-emerald-700"
-                  >
-                    <DollarSign className="w-5 h-5" />
-                    <div>
-                      <p className="font-semibold text-sm">Modificar Base</p>
-                      <p className="text-xs text-gray-500">Base inicial del período</p>
-                    </div>
-                  </button>
-
-                  <div className="border-t border-gray-200 my-1"></div>
-
-                  <button
-                    onClick={() => {
-                      setShowInventarioModal(true);
-                      setShowMenu(false);
-                    }}
-                    className="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors flex items-center gap-3 text-gray-700 hover:text-blue-700"
-                  >
-                    <Package className="w-5 h-5" />
-                    <div>
-                      <p className="font-semibold text-sm">Modificar Inventario</p>
-                      <p className="text-xs text-gray-500">Ajustar stock de productos</p>
-                    </div>
-                  </button>
-
-                  <div className="border-t border-gray-200 my-1"></div>
-
-                  <button
-                    onClick={() => {
-                      setShowApodosModal(true);
-                      setShowMenu(false);
-                    }}
-                    className="w-full px-4 py-3 text-left hover:bg-purple-50 transition-colors flex items-center gap-3 text-gray-700 hover:text-purple-700"
-                  >
-                    <Edit2 className="w-5 h-5" />
-                    <div>
-                      <p className="font-semibold text-sm">Modificar Apodos</p>
-                      <p className="text-xs text-gray-500">Gestionar alias de productos</p>
-                    </div>
-                  </button>
-                </div>
+    {showMenu && (
+      <>
+        <div className="absolute left-0 top-full mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 z-[60]">
+          <div className="py-2">
+            <button
+              onClick={() => {
+                setShowBaseModal(true);
+                setShowMenu(false);
+              }}
+              className="w-full px-4 py-3 text-left hover:bg-emerald-50 transition-colors flex items-center gap-3 text-gray-700 hover:text-emerald-700"
+            >
+              <DollarSign className="w-5 h-5" />
+              <div>
+                <p className="font-semibold text-sm">Modificar Base</p>
+                <p className="text-xs text-gray-500">Base inicial del período</p>
               </div>
+            </button>
 
-              <div 
-                className="fixed inset-0 z-40" 
-                onClick={() => setShowMenu(false)}
-              ></div>
-            </>
-          )}
+            <div className="border-t border-gray-200 my-1"></div>
+
+            <button
+              onClick={() => {
+                setShowInventarioModal(true);
+                setShowMenu(false);
+              }}
+              className="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors flex items-center gap-3 text-gray-700 hover:text-blue-700"
+            >
+              <Package className="w-5 h-5" />
+              <div>
+                <p className="font-semibold text-sm">Modificar Inventario</p>
+                <p className="text-xs text-gray-500">Ajustar stock de productos</p>
+              </div>
+            </button>
+
+            <div className="border-t border-gray-200 my-1"></div>
+
+            <button
+              onClick={() => {
+                setShowApodosModal(true);
+                setShowMenu(false);
+              }}
+              className="w-full px-4 py-3 text-left hover:bg-purple-50 transition-colors flex items-center gap-3 text-gray-700 hover:text-purple-700"
+            >
+              <Edit2 className="w-5 h-5" />
+              <div>
+                <p className="font-semibold text-sm">Modificar Apodos</p>
+                <p className="text-xs text-gray-500">Gestionar alias de productos</p>
+              </div>
+            </button>
+          </div>
         </div>
+
+        <div 
+          className="fixed inset-0 z-[55]" 
+          onClick={() => setShowMenu(false)}
+        ></div>
+      </>
+    )}
+  </div>
+
+  {/* Resto de botones */}
+  <div className="flex flex-col sm:flex-row gap-3 flex-1">
+    <button
+      onClick={handleAbrirCierre}
+      className="flex items-center justify-center gap-2 bg-emerald-100 text-emerald-700 px-6 py-2 rounded-lg font-semibold hover:bg-emerald-50 transition-colors shadow-md"
+    >
+      <CheckCircle className="w-5 h-5" />
+      Hacer Cierre
+    </button>
+    <button
+      onClick={() => {
+        setLoading(true);
+        loadDashboardData(tenantId);
+      }}
+      className="flex items-center justify-center gap-2 bg-white text-emerald-600 px-6 py-2 rounded-lg font-semibold hover:bg-emerald-50 transition-colors shadow-md"
+    >
+      <RefreshCw className="w-5 h-5" />
+      Refrescar Datos
+    </button>
+    <button
+      onClick={handleExportPDF}
+      className="flex items-center justify-center gap-2 bg-white text-emerald-600 px-6 py-2 rounded-lg font-semibold hover:bg-emerald-50 transition-colors shadow-md"
+    >
+      <Download className="w-5 h-5" />
+      Exportar PDF
+    </button>
+  </div>
+</div>
             </div>
           </div>
         </div>

@@ -40,6 +40,8 @@ const Dashboard = () => {
   const [baseProximoPeriodo, setBaseProximoPeriodo] = useState('');
   const [nuevoInventario, setNuevoInventario] = useState({});
   const [apodosProductos, setApodosProductos] = useState({});
+  const [showConceptosModal, setShowConceptosModal] = useState(false);
+  const [categoriaSeleccionada, setCategoriaSeleccionada] = useState(null);
 
   // FUNCIONES PARA ZONA HORARIA BOGOTÁ
   const getStartOfDayInBogota = (dateString) => {
@@ -1392,33 +1394,50 @@ const Dashboard = () => {
 
 
         {/* Tabla de Gastos por Categoría */}
-        {Object.keys(gastosPorCategoria).length > 0 && (
-          <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">📊 Desglose de Gastos por Categoría</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoría</th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monto</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {Object.entries(gastosPorCategoria).map(([categoria, monto], index) => (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900">{categoria}</td>
-                      <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(monto)}</td>
-                    </tr>
-                  ))}
-                  <tr className="bg-gray-100 font-bold">
-                    <td className="px-4 py-3 text-sm text-gray-900">TOTAL GASTOS</td>
-                    <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(dashboardData.resumen.gastos)}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+{Object.keys(gastosPorCategoria).length > 0 && (
+  <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+    <h3 className="text-lg font-bold text-gray-800 mb-4">📊 Desglose de Gastos por Categoría</h3>
+    <div className="overflow-x-auto">
+      <table className="w-full">
+        <thead className="bg-gray-50">
+          <tr>
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoría</th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Monto</th>
+            {(dateRange === 'today' || dateRange === 'week') && (
+              <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+            )}
+          </tr>
+        </thead>
+        <tbody className="bg-white divide-y divide-gray-200">
+          {Object.entries(gastosPorCategoria).map(([categoria, monto], index) => (
+            <tr key={index} className="hover:bg-gray-50">
+              <td className="px-4 py-3 text-sm font-medium text-gray-900">{categoria}</td>
+              <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(monto)}</td>
+              {(dateRange === 'today' || dateRange === 'week') && (
+                <td className="px-4 py-3 text-center">
+                  <button
+                    onClick={() => {
+                      setCategoriaSeleccionada(categoria);
+                      setShowConceptosModal(true);
+                    }}
+                    className="text-emerald-600 hover:text-emerald-800 font-semibold text-sm underline"
+                  >
+                    Ver
+                  </button>
+                </td>
+              )}
+            </tr>
+          ))}
+          <tr className="bg-gray-100 font-bold">
+            <td className="px-4 py-3 text-sm text-gray-900">TOTAL GASTOS</td>
+            <td className="px-4 py-3 text-sm text-gray-900">{formatCurrency(dashboardData.resumen.gastos)}</td>
+            {(dateRange === 'today' || dateRange === 'week') && <td></td>}
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+)}
 
         {/* Tabla Top Productos */}
         {sortedProducts.length > 0 && (
@@ -2171,6 +2190,99 @@ const Dashboard = () => {
                     className="flex-1 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-bold"
                   >
                     Guardar Apodos
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL: VER CONCEPTOS DE GASTOS */}
+        {showConceptosModal && categoriaSeleccionada && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+              <div className="bg-amber-600 text-white p-6 rounded-t-lg sticky top-0 z-10">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <FileText className="w-6 h-6" />
+                    <div>
+                      <h2 className="text-xl font-bold">Conceptos de Gastos</h2>
+                      <p className="text-sm text-amber-100 mt-1">Categoría: {categoriaSeleccionada}</p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => {
+                      setShowConceptosModal(false);
+                      setCategoriaSeleccionada(null);
+                    }}
+                    className="text-white hover:bg-amber-700 p-2 rounded-lg transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-6">
+                {/* Lista de conceptos */}
+                <div className="space-y-3">
+                  {gastosDelPeriodo
+                    .filter(gasto => (gasto.categoria || 'Sin categoría') === categoriaSeleccionada)
+                    .map((gasto, index) => (
+                      <div key={index} className="border border-gray-200 rounded-lg p-4 hover:bg-amber-50 transition-colors">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1">
+                            <p className="font-bold text-gray-900 mb-1">
+                              {gasto.concepto || 'Sin concepto'}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {new Date(gasto.created_at).toLocaleString('es-CO', { 
+                                timeZone: 'America/Bogota',
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-lg font-bold text-gray-900">
+                              {formatCurrency(gasto.monto)}
+                            </p>
+                          </div>
+                        </div>
+                        {gasto.descripcion && (
+                          <p className="text-sm text-gray-600 mt-2 pt-2 border-t border-gray-200">
+                            📝 {gasto.descripcion}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                </div>
+
+                {/* Total de la categoría */}
+                <div className="mt-6 pt-4 border-t-2 border-gray-300">
+                  <div className="flex items-center justify-between">
+                    <p className="text-lg font-bold text-gray-800">Total {categoriaSeleccionada}:</p>
+                    <p className="text-2xl font-bold text-amber-600">
+                      {formatCurrency(gastosPorCategoria[categoriaSeleccionada])}
+                    </p>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {gastosDelPeriodo.filter(g => (g.categoria || 'Sin categoría') === categoriaSeleccionada).length} gasto(s) registrado(s)
+                  </p>
+                </div>
+
+                {/* Botón cerrar */}
+                <div className="mt-6">
+                  <button
+                    onClick={() => {
+                      setShowConceptosModal(false);
+                      setCategoriaSeleccionada(null);
+                    }}
+                    className="w-full px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-bold"
+                  >
+                    Cerrar
                   </button>
                 </div>
               </div>

@@ -891,74 +891,74 @@ const Dashboard = () => {
               </button>
 
         {/* Menú Hamburguesa */}
-        <div className="relative">
+<div className="relative">
+  <button
+    onClick={() => setShowMenu(!showMenu)}
+    className="flex items-center justify-center gap-2 bg-white text-emerald-600 px-4 py-2 rounded-lg font-semibold hover:bg-emerald-50 transition-colors shadow-md"
+  >
+    <Menu className="w-5 h-5" />
+    <span className="hidden sm:inline">Opciones</span>
+  </button>
+
+  {showMenu && (
+    <>
+      <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
+        <div className="py-2">
           <button
-            onClick={() => setShowMenu(!showMenu)}
-            className="flex items-center justify-center gap-2 bg-white text-emerald-600 px-4 py-2 rounded-lg font-semibold hover:bg-emerald-50 transition-colors shadow-md"
+            onClick={() => {
+              setShowBaseModal(true);
+              setShowMenu(false);
+            }}
+            className="w-full px-4 py-3 text-left hover:bg-emerald-50 transition-colors flex items-center gap-3 text-gray-700 hover:text-emerald-700"
           >
-            <Menu className="w-5 h-5" />
-            <span className="hidden sm:inline">Opciones</span>
+            <DollarSign className="w-5 h-5" />
+            <div>
+              <p className="font-semibold text-sm">Modificar Base</p>
+              <p className="text-xs text-gray-500">Base inicial del período</p>
+            </div>
           </button>
 
-          {showMenu && (
-            <>
-              <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
-                <div className="py-2">
-                  <button
-                    onClick={() => {
-                      setShowBaseModal(true);
-                      setShowMenu(false);
-                    }}
-                    className="w-full px-4 py-3 text-left hover:bg-emerald-50 transition-colors flex items-center gap-3 text-gray-700 hover:text-emerald-700"
-                  >
-                    <DollarSign className="w-5 h-5" />
-                    <div>
-                      <p className="font-semibold text-sm">Modificar Base</p>
-                      <p className="text-xs text-gray-500">Base inicial del período</p>
-                    </div>
-                  </button>
+          <div className="border-t border-gray-200 my-1"></div>
 
-                  <div className="border-t border-gray-200 my-1"></div>
+          <button
+            onClick={() => {
+              setShowInventarioModal(true);
+              setShowMenu(false);
+            }}
+            className="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors flex items-center gap-3 text-gray-700 hover:text-blue-700"
+          >
+            <Package className="w-5 h-5" />
+            <div>
+              <p className="font-semibold text-sm">Modificar Inventario</p>
+              <p className="text-xs text-gray-500">Ajustar stock de productos</p>
+            </div>
+          </button>
 
-                  <button
-                    onClick={() => {
-                      setShowInventarioModal(true);
-                      setShowMenu(false);
-                    }}
-                    className="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors flex items-center gap-3 text-gray-700 hover:text-blue-700"
-                  >
-                    <Package className="w-5 h-5" />
-                    <div>
-                      <p className="font-semibold text-sm">Modificar Inventario</p>
-                      <p className="text-xs text-gray-500">Ajustar stock de productos</p>
-                    </div>
-                  </button>
+          <div className="border-t border-gray-200 my-1"></div>
 
-                  <div className="border-t border-gray-200 my-1"></div>
-
-                  <button
-                    onClick={() => {
-                      setShowApodosModal(true);
-                      setShowMenu(false);
-                    }}
-                    className="w-full px-4 py-3 text-left hover:bg-purple-50 transition-colors flex items-center gap-3 text-gray-700 hover:text-purple-700"
-                  >
-                    <Edit2 className="w-5 h-5" />
-                    <div>
-                      <p className="font-semibold text-sm">Modificar Apodos</p>
-                      <p className="text-xs text-gray-500">Gestionar alias de productos</p>
-                    </div>
-                  </button>
-                </div>
-              </div>
-
-              <div 
-                className="fixed inset-0 z-40" 
-                onClick={() => setShowMenu(false)}
-              ></div>
-            </>
-          )}
+          <button
+            onClick={() => {
+              setShowApodosModal(true);
+              setShowMenu(false);
+            }}
+            className="w-full px-4 py-3 text-left hover:bg-purple-50 transition-colors flex items-center gap-3 text-gray-700 hover:text-purple-700"
+          >
+            <Edit2 className="w-5 h-5" />
+            <div>
+              <p className="font-semibold text-sm">Modificar Apodos</p>
+              <p className="text-xs text-gray-500">Gestionar alias de productos</p>
+            </div>
+          </button>
         </div>
+      </div>
+
+      <div 
+        className="fixed inset-0 z-40" 
+        onClick={() => setShowMenu(false)}
+      ></div>
+    </>
+  )}
+</div>
             </div>
           </div>
         </div>
@@ -1771,238 +1771,6 @@ const Dashboard = () => {
                       )}
                     </div>
 
-      {/* MODAL: MODIFICAR BASE */}
-      {showBaseModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-2xl max-w-md w-full">
-            <div className="bg-emerald-600 text-white p-6 rounded-t-lg">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <DollarSign className="w-6 h-6" />
-                  <h2 className="text-xl font-bold">Modificar Base Inicial</h2>
-                </div>
-                <button 
-                  onClick={() => setShowBaseModal(false)}
-                  className="text-white hover:bg-emerald-700 p-2 rounded-lg transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
-            <div className="p-6 space-y-4">
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                <p className="text-sm text-yellow-800">
-                  ⚠️ <strong>Importante:</strong> Esta base se usará para calcular la caja esperada en el próximo cierre.
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
-                  Base Actual
-                </label>
-                <div className="bg-gray-100 rounded-lg p-4">
-                  <p className="text-2xl font-bold text-gray-900">
-                    {formatCurrency(baseActual)}
-
-      {/* MODAL: MODIFICAR INVENTARIO */}
-      {showInventarioModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="bg-blue-600 text-white p-6 rounded-t-lg sticky top-0 z-10">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Package className="w-6 h-6" />
-                  <h2 className="text-xl font-bold">Modificar Inventario</h2>
-                </div>
-                <button 
-                  onClick={() => setShowInventarioModal(false)}
-                  className="text-white hover:bg-blue-700 p-2 rounded-lg transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
-            <div className="p-6">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                <p className="text-sm text-blue-800">
-                  💡 Ajusta el stock actual de tus productos. Estos cambios se reflejarán inmediatamente.
-                </p>
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-blue-100 sticky top-0">
-                    <tr>
-                      <th className="px-4 py-3 text-left font-semibold text-blue-900">Código</th>
-                      <th className="px-4 py-3 text-left font-semibold text-blue-900">Producto</th>
-                      <th className="px-4 py-3 text-center font-semibold text-blue-900">Stock Actual</th>
-                      <th className="px-4 py-3 text-center font-semibold text-blue-900">Nuevo Stock</th>
-                      <th className="px-4 py-3 text-center font-semibold text-blue-900">Diferencia</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white">
-                    {allProductos.map((producto) => {
-                      const nuevoStock = parseFloat(nuevoInventario[producto.producto_id]) || parseFloat(producto.stock_actual);
-                      const diferencia = nuevoStock - parseFloat(producto.stock_actual || 0);
-
-                      return (
-                        <tr key={producto.producto_id} className="border-b hover:bg-blue-50">
-                          <td className="px-4 py-3 font-semibold text-gray-900">{producto.codigo}</td>
-                          <td className="px-4 py-3 text-gray-900">{producto.producto}</td>
-                          <td className="px-4 py-3 text-center font-bold text-gray-700">
-                            {Math.round(parseFloat(producto.stock_actual || 0))}
-                          </td>
-                          <td className="px-4 py-3">
-                            <input
-                              type="number"
-                              value={nuevoInventario[producto.producto_id] || ''}
-                              onChange={(e) => setNuevoInventario({
-                                ...nuevoInventario,
-                                [producto.producto_id]: e.target.value
-                              })}
-                              placeholder={Math.round(producto.stock_actual)}
-                              className="w-full px-2 py-1 border border-gray-300 rounded text-center focus:ring-2 focus:ring-blue-500"
-                            />
-                          </td>
-                          <td className={`px-4 py-3 text-center font-semibold ${
-                            diferencia > 0 ? 'text-green-600' : diferencia < 0 ? 'text-red-600' : 'text-gray-600'
-                          }`}>
-                            {diferencia > 0 ? '+' : ''}{Math.round(diferencia)}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="flex gap-3 pt-4 mt-4 border-t">
-                <button
-                  onClick={() => setShowInventarioModal(false)}
-                  className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleGuardarInventario}
-                  className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-bold"
-                >
-                  Guardar Cambios
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-
-      {/* MODAL: MODIFICAR APODOS */}
-      {showApodosModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="bg-purple-600 text-white p-6 rounded-t-lg sticky top-0 z-10">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Edit2 className="w-6 h-6" />
-                  <h2 className="text-xl font-bold">Modificar Apodos</h2>
-                </div>
-                <button 
-                  onClick={() => setShowApodosModal(false)}
-                  className="text-white hover:bg-purple-700 p-2 rounded-lg transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
-            <div className="p-6">
-              <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
-                <p className="text-sm text-purple-800">
-                  🏷️ Los apodos permiten buscar productos con nombres alternativos (ej: "coca" para "Coca Cola"). Separa múltiples apodos con comas.
-                </p>
-              </div>
-
-              <div className="space-y-3">
-                {allProductos.map((producto) => (
-                  <div key={producto.producto_id} className="border rounded-lg p-4 hover:bg-purple-50 transition-colors">
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <p className="font-bold text-gray-900">{producto.producto}</p>
-                        <p className="text-xs text-gray-500">Código: {producto.codigo}</p>
-                      </div>
-                    </div>
-                    <input
-                      type="text"
-                      placeholder="Ej: coca, gaseosa negra, coca cola"
-                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
-                      defaultValue={producto.apodos || ''}
-                      onChange={(e) => setApodosProductos({
-                        ...apodosProductos,
-                        [producto.producto_id]: e.target.value
-                      })}
-                    />
-                  </div>
-                ))}
-              </div>
-
-              <div className="flex gap-3 pt-4 mt-4 border-t">
-                <button
-                  onClick={() => setShowApodosModal(false)}
-                  className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleGuardarApodos}
-                  className="flex-1 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-bold"
-                >
-                  Guardar Apodos
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-                  </p>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
-                  Nueva Base *
-                </label>
-                <input
-                  type="number"
-                  value={baseActual}
-                  onChange={(e) => setBaseActual(e.target.value)}
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-lg"
-                  placeholder="Ejemplo: 50000"
-                />
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => setShowBaseModal(false)}
-                  className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleGuardarBase}
-                  className="flex-1 px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-bold"
-                >
-                  Guardar Base
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-
                     <div className="flex gap-3">
                       <button
                         onClick={() => setCierreStep(1)}
@@ -2027,6 +1795,235 @@ const Dashboard = () => {
                     </div>
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL: MODIFICAR BASE */}
+        {showBaseModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-2xl max-w-md w-full">
+              <div className="bg-emerald-600 text-white p-6 rounded-t-lg">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <DollarSign className="w-6 h-6" />
+                    <h2 className="text-xl font-bold">Modificar Base Inicial</h2>
+                  </div>
+                  <button 
+                    onClick={() => setShowBaseModal(false)}
+                    className="text-white hover:bg-emerald-700 p-2 rounded-lg transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <p className="text-sm text-yellow-800">
+                    ⚠️ <strong>Importante:</strong> Esta base se usará para calcular la caja esperada en el próximo cierre.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">
+                    Base Actual
+                  </label>
+                  <div className="bg-gray-100 rounded-lg p-4">
+                    <p className="text-2xl font-bold text-gray-900">
+                      {formatCurrency(baseActual)}
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">
+                    Nueva Base *
+                  </label>
+                  <input
+                    type="number"
+                    value={baseActual}
+                    onChange={(e) => setBaseActual(e.target.value)}
+                    className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-lg"
+                    placeholder="Ejemplo: 50000"
+                  />
+                </div>
+
+                <div className="flex gap-3 pt-4">
+                  <button
+                    onClick={() => setShowBaseModal(false)}
+                    className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleGuardarBase}
+                    className="flex-1 px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-bold"
+                  >
+                    Guardar Base
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL: MODIFICAR INVENTARIO */}
+        {showInventarioModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="bg-blue-600 text-white p-6 rounded-t-lg sticky top-0 z-10">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Package className="w-6 h-6" />
+                    <h2 className="text-xl font-bold">Modificar Inventario</h2>
+                  </div>
+                  <button 
+                    onClick={() => setShowInventarioModal(false)}
+                    className="text-white hover:bg-blue-700 p-2 rounded-lg transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-6">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                  <p className="text-sm text-blue-800">
+                    💡 Ajusta el stock actual de tus productos. Estos cambios se reflejarán inmediatamente.
+                  </p>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-blue-100 sticky top-0">
+                      <tr>
+                        <th className="px-4 py-3 text-left font-semibold text-blue-900">Código</th>
+                        <th className="px-4 py-3 text-left font-semibold text-blue-900">Producto</th>
+                        <th className="px-4 py-3 text-center font-semibold text-blue-900">Stock Actual</th>
+                        <th className="px-4 py-3 text-center font-semibold text-blue-900">Nuevo Stock</th>
+                        <th className="px-4 py-3 text-center font-semibold text-blue-900">Diferencia</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white">
+                      {allProductos.map((producto) => {
+                        const nuevoStock = parseFloat(nuevoInventario[producto.producto_id]) || parseFloat(producto.stock_actual);
+                        const diferencia = nuevoStock - parseFloat(producto.stock_actual || 0);
+
+                        return (
+                          <tr key={producto.producto_id} className="border-b hover:bg-blue-50">
+                            <td className="px-4 py-3 font-semibold text-gray-900">{producto.codigo}</td>
+                            <td className="px-4 py-3 text-gray-900">{producto.producto}</td>
+                            <td className="px-4 py-3 text-center font-bold text-gray-700">
+                              {Math.round(parseFloat(producto.stock_actual || 0))}
+                            </td>
+                            <td className="px-4 py-3">
+                              <input
+                                type="number"
+                                value={nuevoInventario[producto.producto_id] || ''}
+                                onChange={(e) => setNuevoInventario({
+                                  ...nuevoInventario,
+                                  [producto.producto_id]: e.target.value
+                                })}
+                                placeholder={Math.round(producto.stock_actual)}
+                                className="w-full px-2 py-1 border border-gray-300 rounded text-center focus:ring-2 focus:ring-blue-500"
+                              />
+                            </td>
+                            <td className={`px-4 py-3 text-center font-semibold ${
+                              diferencia > 0 ? 'text-green-600' : diferencia < 0 ? 'text-red-600' : 'text-gray-600'
+                            }`}>
+                              {diferencia > 0 ? '+' : ''}{Math.round(diferencia)}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="flex gap-3 pt-4 mt-4 border-t">
+                  <button
+                    onClick={() => setShowInventarioModal(false)}
+                    className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleGuardarInventario}
+                    className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-bold"
+                  >
+                    Guardar Cambios
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL: MODIFICAR APODOS */}
+        {showApodosModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="bg-purple-600 text-white p-6 rounded-t-lg sticky top-0 z-10">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Edit2 className="w-6 h-6" />
+                    <h2 className="text-xl font-bold">Modificar Apodos</h2>
+                  </div>
+                  <button 
+                    onClick={() => setShowApodosModal(false)}
+                    className="text-white hover:bg-purple-700 p-2 rounded-lg transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-6">
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
+                  <p className="text-sm text-purple-800">
+                    🏷️ Los apodos permiten buscar productos con nombres alternativos (ej: "coca" para "Coca Cola"). Separa múltiples apodos con comas.
+                  </p>
+                </div>
+
+                <div className="space-y-3">
+                  {allProductos.map((producto) => (
+                    <div key={producto.producto_id} className="border rounded-lg p-4 hover:bg-purple-50 transition-colors">
+                      <div className="flex items-center justify-between mb-2">
+                        <div>
+                          <p className="font-bold text-gray-900">{producto.producto}</p>
+                          <p className="text-xs text-gray-500">Código: {producto.codigo}</p>
+                        </div>
+                      </div>
+                      <input
+                        type="text"
+                        placeholder="Ej: coca, gaseosa negra, coca cola"
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-purple-500"
+                        defaultValue={producto.apodos || ''}
+                        onChange={(e) => setApodosProductos({
+                          ...apodosProductos,
+                          [producto.producto_id]: e.target.value
+                        })}
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex gap-3 pt-4 mt-4 border-t">
+                  <button
+                    onClick={() => setShowApodosModal(false)}
+                    className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleGuardarApodos}
+                    className="flex-1 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-bold"
+                  >
+                    Guardar Apodos
+                  </button>
+                </div>
               </div>
             </div>
           </div>

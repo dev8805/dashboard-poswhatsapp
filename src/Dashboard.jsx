@@ -229,7 +229,29 @@ const Dashboard = () => {
       if (productosError) throw productosError;
 
       setAllProductos(productos);
-      setGastosDelPeriodo(gastos);
+      
+      // Combinar gastos regulares con consumos y mermas
+const gastosCompletos = [
+    ...gastos,
+    ...consumos.map(c => ({
+      ...c,
+      categoria: 'Consumo Personal',
+      concepto: productos.find(p => p.producto_id === c.producto_id)?.producto || 'Producto desconocido',
+      monto: parseFloat(c.costo_total || 0),
+      descripcion: `Cantidad: ${c.cantidad || 0}`,
+      esMovimiento: true
+    })),
+    ...mermas.map(m => ({
+      ...m,
+      categoria: 'Mermas',
+      concepto: productos.find(p => p.producto_id === m.producto_id)?.producto || 'Producto desconocido',
+      monto: parseFloat(m.costo_total || 0),
+      descripcion: `Cantidad: ${m.cantidad || 0}`,
+      esMovimiento: true
+    }))
+  ];
+  
+  setGastosDelPeriodo(gastosCompletos);
 
       const processedData = processDashboardData(ventas, compras, consumos, gastos, productos, mermas);
       setDashboardData(processedData);

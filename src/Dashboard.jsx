@@ -32,7 +32,6 @@ const Dashboard = () => {
   const [stockContadoPorProducto, setStockContadoPorProducto] = useState({});
 
   // Estados para menú hamburguesa y modales
-  const [showMenu, setShowMenu] = useState(false);
   const [showBaseModal, setShowBaseModal] = useState(false);
   const [showInventarioModal, setShowInventarioModal] = useState(false);
   const [showApodosModal, setShowApodosModal] = useState(false);
@@ -42,6 +41,8 @@ const Dashboard = () => {
   const [apodosProductos, setApodosProductos] = useState({});
   const [showConceptosModal, setShowConceptosModal] = useState(false);
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState(null);
+  // Estado para sistema de tabs
+  const [activeTab, setActiveTab] = useState('hoy');
 
   // FUNCIONES PARA ZONA HORARIA BOGOTÁ
   const getStartOfDayInBogota = (dateString) => {
@@ -881,75 +882,6 @@ const gastosCompletos = [
         <ShoppingBag className="w-7 h-7" />
         <h1 className="text-xl font-bold">Tienda el Castillo</h1>
       </div>
-      
-      {/* Menú Hamburguesa - Solo Móvil */}
-      <div className="relative">
-        <button
-          onClick={() => setShowMenu(!showMenu)}
-          className="flex items-center justify-center bg-white text-emerald-600 p-2 rounded-lg font-semibold hover:bg-emerald-50 transition-colors shadow-md"
-        >
-          <Menu className="w-6 h-6" />
-        </button>
-
-        {showMenu && (
-          <>
-            <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
-              <div className="py-2">
-                <button
-                  onClick={() => {
-                    setShowBaseModal(true);
-                    setShowMenu(false);
-                  }}
-                  className="w-full px-4 py-3 text-left hover:bg-emerald-50 transition-colors flex items-center gap-3 text-gray-700 hover:text-emerald-700"
-                >
-                  <DollarSign className="w-5 h-5" />
-                  <div>
-                    <p className="font-semibold text-sm">Modificar Base</p>
-                    <p className="text-xs text-gray-500">Base inicial del período</p>
-                  </div>
-                </button>
-
-                <div className="border-t border-gray-200 my-1"></div>
-
-                <button
-                  onClick={() => {
-                    setShowInventarioModal(true);
-                    setShowMenu(false);
-                  }}
-                  className="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors flex items-center gap-3 text-gray-700 hover:text-blue-700"
-                >
-                  <Package className="w-5 h-5" />
-                  <div>
-                    <p className="font-semibold text-sm">Modificar Inventario</p>
-                    <p className="text-xs text-gray-500">Ajustar stock de productos</p>
-                  </div>
-                </button>
-
-                <div className="border-t border-gray-200 my-1"></div>
-
-                <button
-                  onClick={() => {
-                    setShowApodosModal(true);
-                    setShowMenu(false);
-                  }}
-                  className="w-full px-4 py-3 text-left hover:bg-purple-50 transition-colors flex items-center gap-3 text-gray-700 hover:text-purple-700"
-                >
-                  <Edit2 className="w-5 h-5" />
-                  <div>
-                    <p className="font-semibold text-sm">Modificar Apodos</p>
-                    <p className="text-xs text-gray-500">Gestionar alias de productos</p>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            <div 
-              className="fixed inset-0 z-40" 
-              onClick={() => setShowMenu(false)}
-            ></div>
-          </>
-        )}
-      </div>
     </div>
 
     {/* Fila 2: Propietario */}
@@ -965,13 +897,7 @@ const gastosCompletos = [
 
     {/* Fila 4: Botones */}
     <div className="flex flex-col gap-2">
-      <button
-        onClick={handleAbrirCierre}
-        className="flex items-center justify-center gap-2 bg-emerald-100 text-emerald-700 px-4 py-2 rounded-lg font-semibold hover:bg-emerald-50 transition-colors shadow-md text-sm"
-      >
-        <CheckCircle className="w-4 h-4" />
-        Hacer Cierre
-      </button>
+      
       <button
         onClick={() => {
           setLoading(true);
@@ -1010,13 +936,7 @@ const gastosCompletos = [
     </div>
     
     <div className="flex flex-col sm:flex-row gap-3">
-      <button
-        onClick={handleAbrirCierre}
-        className="flex items-center justify-center gap-2 bg-emerald-100 text-emerald-700 px-6 py-2 rounded-lg font-semibold hover:bg-emerald-50 transition-colors shadow-md"
-      >
-        <CheckCircle className="w-5 h-5" />
-        Hacer Cierre
-      </button>
+      
       <button
         onClick={() => {
           setLoading(true);
@@ -1035,80 +955,74 @@ const gastosCompletos = [
         Exportar PDF
       </button>
 
-      {/* Menú Hamburguesa - Solo Desktop */}
-      <div className="relative">
-        <button
-          onClick={() => setShowMenu(!showMenu)}
-          className="flex items-center justify-center gap-2 bg-white text-emerald-600 px-4 py-2 rounded-lg font-semibold hover:bg-emerald-50 transition-colors shadow-md"
-        >
-          <Menu className="w-5 h-5" />
-          <span>Opciones</span>
-        </button>
-
-        {showMenu && (
-          <>
-            <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-xl border border-gray-200 z-50">
-              <div className="py-2">
-                <button
-                  onClick={() => {
-                    setShowBaseModal(true);
-                    setShowMenu(false);
-                  }}
-                  className="w-full px-4 py-3 text-left hover:bg-emerald-50 transition-colors flex items-center gap-3 text-gray-700 hover:text-emerald-700"
-                >
-                  <DollarSign className="w-5 h-5" />
-                  <div>
-                    <p className="font-semibold text-sm">Modificar Base</p>
-                    <p className="text-xs text-gray-500">Base inicial del período</p>
-                  </div>
-                </button>
-
-                <div className="border-t border-gray-200 my-1"></div>
-
-                <button
-                  onClick={() => {
-                    setShowInventarioModal(true);
-                    setShowMenu(false);
-                  }}
-                  className="w-full px-4 py-3 text-left hover:bg-blue-50 transition-colors flex items-center gap-3 text-gray-700 hover:text-blue-700"
-                >
-                  <Package className="w-5 h-5" />
-                  <div>
-                    <p className="font-semibold text-sm">Modificar Inventario</p>
-                    <p className="text-xs text-gray-500">Ajustar stock de productos</p>
-                  </div>
-                </button>
-
-                <div className="border-t border-gray-200 my-1"></div>
-
-                <button
-                  onClick={() => {
-                    setShowApodosModal(true);
-                    setShowMenu(false);
-                  }}
-                  className="w-full px-4 py-3 text-left hover:bg-purple-50 transition-colors flex items-center gap-3 text-gray-700 hover:text-purple-700"
-                >
-                  <Edit2 className="w-5 h-5" />
-                  <div>
-                    <p className="font-semibold text-sm">Modificar Apodos</p>
-                    <p className="text-xs text-gray-500">Gestionar alias de productos</p>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            <div 
-              className="fixed inset-0 z-40" 
-              onClick={() => setShowMenu(false)}
-            ></div>
-          </>
-        )}
-      </div>
     </div>
   </div>
+
+    {/* Sistema de Tabs */}
+    <div className="bg-white rounded-lg shadow-md mb-6 overflow-hidden">
+          <div className="flex border-b border-gray-200 overflow-x-auto">
+            <button
+              onClick={() => setActiveTab('hoy')}
+              className={`flex-1 min-w-[120px] px-6 py-4 font-semibold transition-all duration-200 whitespace-nowrap ${
+                activeTab === 'hoy'
+                  ? 'bg-emerald-600 text-white border-b-4 border-emerald-700'
+                  : 'text-gray-600 hover:bg-gray-50 hover:text-emerald-600'
+              }`}
+            >
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-xl">📅</span>
+                <span>Hoy</span>
+              </div>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('resumen')}
+              className={`flex-1 min-w-[120px] px-6 py-4 font-semibold transition-all duration-200 whitespace-nowrap ${
+                activeTab === 'resumen'
+                  ? 'bg-emerald-600 text-white border-b-4 border-emerald-700'
+                  : 'text-gray-600 hover:bg-gray-50 hover:text-emerald-600'
+              }`}
+            >
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-xl">📊</span>
+                <span>Resumen</span>
+              </div>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('detalles')}
+              className={`flex-1 min-w-[120px] px-6 py-4 font-semibold transition-all duration-200 whitespace-nowrap ${
+                activeTab === 'detalles'
+                  ? 'bg-emerald-600 text-white border-b-4 border-emerald-700'
+                  : 'text-gray-600 hover:bg-gray-50 hover:text-emerald-600'
+              }`}
+            >
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-xl">📋</span>
+                <span>Detalles</span>
+              </div>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('gestion')}
+              className={`flex-1 min-w-[120px] px-6 py-4 font-semibold transition-all duration-200 whitespace-nowrap ${
+                activeTab === 'gestion'
+                  ? 'bg-emerald-600 text-white border-b-4 border-emerald-700'
+                  : 'text-gray-600 hover:bg-gray-50 hover:text-emerald-600'
+              }`}
+            >
+              <div className="flex items-center justify-center gap-2">
+                <span className="text-xl">⚙️</span>
+                <span>Gestión</span>
+              </div>
+            </button>
+          </div>
+        </div>
+
 </div>
 
-        {/* Selector de Rango de Fechas */}
+        {/* Selector de Rango de Fechas - Solo en tabs Resumen y Detalles */}
+        {(activeTab === 'resumen' || activeTab === 'detalles') && (
         <div className="bg-white rounded-lg shadow-md p-4 mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
             <label className="text-gray-700 font-medium">Período:</label>
@@ -1191,8 +1105,172 @@ const gastosCompletos = [
                 </button>
               </div>
             </div>
-          )}
+          )}      
         </div>
+        )}
+
+        {/* ========== TAB: HOY ========== */}
+        {activeTab === 'hoy' && (
+          <div className="space-y-6">
+
+            {/* Mensaje si no es "hoy" el período seleccionado */}
+            {dateRange !== 'today' && (
+              <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 mb-4">
+                <p className="text-amber-800">
+                  ⚠️ <strong>Nota:</strong> Estás viendo datos del período seleccionado, no solo de hoy. 
+                  Para ver datos en tiempo real del día actual, selecciona "Hoy" en el selector de período.
+                </p>
+              </div>
+            )}
+
+        {/* Resumen Ejecutivo */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-emerald-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm font-medium">Total Ventas</p>
+                <p className="text-2xl font-bold text-gray-800 mt-1">{formatCurrency(dashboardData.resumen.ventas)}</p>
+              </div>
+              <div className="bg-emerald-100 p-3 rounded-full">
+                <DollarSign className="w-6 h-6 text-emerald-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm font-medium">Total Compras</p>
+                <p className="text-2xl font-bold text-gray-800 mt-1">{formatCurrency(dashboardData.resumen.compras)}</p>
+              </div>
+              <div className="bg-blue-100 p-3 rounded-full">
+                <ShoppingCart className="w-6 h-6 text-blue-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-amber-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm font-medium">Total Gastos</p>
+                <p className="text-2xl font-bold text-gray-800 mt-1">{formatCurrency(dashboardData.resumen.gastos)}</p>
+              </div>
+              <div className="bg-amber-100 p-3 rounded-full">
+                <Package className="w-6 h-6 text-amber-600" />
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-purple-500">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-600 text-sm font-medium">Utilidad Bruta</p>
+                <p className="text-2xl font-bold text-gray-800 mt-1">{formatCurrency(dashboardData.resumen.utilidad)}</p>
+              </div>
+              <div className="bg-purple-100 p-3 rounded-full">
+                <TrendingUp className="w-6 h-6 text-purple-600" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Alertas y Recomendaciones */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-red-500">
+            <div className="flex items-center gap-3 mb-3">
+              <AlertCircle className="w-6 h-6 text-red-500" />
+              <h4 className="font-bold text-gray-800">Stock Bajo</h4>
+            </div>
+            {dashboardData.alertas.stockBajo.length > 0 ? (
+              <ul className="space-y-2">
+                {dashboardData.alertas.stockBajo.map((item, index) => (
+                  <li key={index} className="text-sm text-gray-700 flex items-start gap-2">
+                    <span className="text-red-500 mt-1">•</span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-gray-500">No hay productos con stock bajo</p>
+            )}
+          </div>
+
+          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-yellow-500">
+            <div className="flex items-center gap-3 mb-3">
+              <AlertTriangle className="w-6 h-6 text-yellow-500" />
+              <h4 className="font-bold text-gray-800">Sin Movimiento</h4>
+            </div>
+            {dashboardData.alertas.sinMovimiento.length > 0 ? (
+              <ul className="space-y-2">
+                {dashboardData.alertas.sinMovimiento.map((item, index) => (
+                  <li key={index} className="text-sm text-gray-700 flex items-start gap-2">
+                    <span className="text-yellow-500 mt-1">•</span>
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-gray-500">Todos los productos tienen movimiento</p>
+            )}
+          </div>
+
+          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
+            <div className="flex items-center gap-3 mb-3">
+              <CheckCircle className="w-6 h-6 text-green-500" />
+              <h4 className="font-bold text-gray-800">Más Rentable</h4>
+            </div>
+            <p className="text-sm text-gray-700 mb-3">{dashboardData.alertas.masRentable}</p>
+            {dashboardData.alertas.stockBajo.length > 0 && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                <p className="text-xs font-semibold text-green-800 mb-1">💡 Sugerencia:</p>
+                <p className="text-sm text-green-700">Reponer {dashboardData.alertas.stockBajo[0]}</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Top 3 Productos del Día */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+              <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <span className="text-2xl">🏆</span>
+                Top 3 Productos Más Vendidos Hoy
+              </h3>
+              {dashboardData.topProductos && dashboardData.topProductos.length > 0 ? (
+                <div className="space-y-4">
+                  {dashboardData.topProductos.slice(0, 3).map((producto, index) => {
+                    const medallas = ['🥇', '🥈', '🥉'];
+                    const colores = ['bg-yellow-50 border-yellow-300', 'bg-gray-50 border-gray-300', 'bg-orange-50 border-orange-300'];
+                    return (
+                      <div key={index} className={`border-2 ${colores[index]} rounded-lg p-4`}>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-3">
+                            <span className="text-3xl">{medallas[index]}</span>
+                            <div>
+                              <p className="font-bold text-gray-900 text-lg">{producto.nombre}</p>
+                              <p className="text-sm text-gray-600">Vendidos: {producto.vendidos} und</p>
+                            </div>
+                          </div>
+                          <p className="text-xl font-bold text-emerald-600">{formatCurrency(producto.total)}</p>
+                        </div>
+                        <div className="flex items-center gap-4 text-sm text-gray-600">
+                          <span>📦 Stock: {Math.round(producto.stock)} und</span>
+                          <span>💰 Margen: {producto.margen}%</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-gray-500 text-center py-8">No hay ventas registradas hoy</p>
+              )}
+            </div>
+
+          </div>
+        )}
+
+        {/* ========== TAB: RESUMEN ========== */}
+        {activeTab === 'resumen' && (
+          <div className="space-y-6">
 
         {/* Resumen Ejecutivo */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -1414,8 +1492,8 @@ const gastosCompletos = [
 </div>
         </div>
 
+            {/* Tabla de Gastos por Categoría */}
 
-        {/* Tabla de Gastos por Categoría */}
 {Object.keys(gastosPorCategoria).length > 0 && (
   <div className="bg-white rounded-lg shadow-md p-6 mb-6">
     <h3 className="text-lg font-bold text-gray-800 mb-4">📊 Desglose de Gastos por Categoría</h3>
@@ -1460,6 +1538,38 @@ const gastosCompletos = [
     </div>
   </div>
 )}
+
+
+
+          {/* Indicadores Clave */}
+        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+          <h3 className="text-lg font-bold text-gray-800 mb-4">Indicadores Clave de Rendimiento</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            
+            
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4">
+              <p className="text-sm text-blue-700 font-medium mb-1">Mayor Rotación</p>
+              <p className="text-lg font-bold text-blue-900">{dashboardData.kpis.mayorRotacion}</p>
+            </div>
+            
+            <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4">
+              <p className="text-sm text-purple-700 font-medium mb-1">Más Rentable</p>
+              <p className="text-lg font-bold text-purple-900">{dashboardData.kpis.masRentable}</p>
+            </div>
+            
+            <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg p-4">
+              <p className="text-sm text-amber-700 font-medium mb-1">Total Productos</p>
+              <p className="text-2xl font-bold text-amber-900">{allProductos.length}</p>
+            </div>
+          </div>
+        </div>
+
+        </div>
+        )}
+
+        {/* ========== TAB: DETALLES ========== */}
+        {activeTab === 'detalles' && (
+          <div className="space-y-6">
 
         {/* Tabla Top Productos */}
         {sortedProducts.length > 0 && (
@@ -1573,84 +1683,71 @@ const gastosCompletos = [
             </div>
           </div>
         )}
+        </div>
+        )}
 
-        {/* Alertas y Recomendaciones */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-red-500">
-            <div className="flex items-center gap-3 mb-3">
-              <AlertCircle className="w-6 h-6 text-red-500" />
-              <h4 className="font-bold text-gray-800">Stock Bajo</h4>
-            </div>
-            {dashboardData.alertas.stockBajo.length > 0 ? (
-              <ul className="space-y-2">
-                {dashboardData.alertas.stockBajo.map((item, index) => (
-                  <li key={index} className="text-sm text-gray-700 flex items-start gap-2">
-                    <span className="text-red-500 mt-1">•</span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-gray-500">No hay productos con stock bajo</p>
-            )}
-          </div>
+        {/* ========== TAB: GESTIÓN ========== */}
+        {activeTab === 'gestion' && (
+          <div className="space-y-6">
+            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-6 border-l-4 border-blue-500">
+              <h3 className="text-xl font-bold text-blue-900 mb-4">⚙️ Opciones de Gestión</h3>
+              <p className="text-blue-800 mb-6">Administra la configuración y realiza el cierre del período.</p>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <button
+                  onClick={handleAbrirCierre}
+                  className="flex items-center gap-3 bg-white p-4 rounded-lg shadow hover:shadow-md transition-all hover:scale-105 border-2 border-blue-200"
+                >
+                  <CheckCircle className="w-8 h-8 text-emerald-600" />
+                  <div className="text-left">
+                    <p className="font-bold text-gray-900">Hacer Cierre</p>
+                    <p className="text-sm text-gray-600">Cierre del período actual</p>
+                  </div>
+                </button>
 
-          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-yellow-500">
-            <div className="flex items-center gap-3 mb-3">
-              <AlertTriangle className="w-6 h-6 text-yellow-500" />
-              <h4 className="font-bold text-gray-800">Sin Movimiento</h4>
-            </div>
-            {dashboardData.alertas.sinMovimiento.length > 0 ? (
-              <ul className="space-y-2">
-                {dashboardData.alertas.sinMovimiento.map((item, index) => (
-                  <li key={index} className="text-sm text-gray-700 flex items-start gap-2">
-                    <span className="text-yellow-500 mt-1">•</span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-gray-500">Todos los productos tienen movimiento</p>
-            )}
-          </div>
+                <button
+                  onClick={() => setShowBaseModal(true)}
+                  className="flex items-center gap-3 bg-white p-4 rounded-lg shadow hover:shadow-md transition-all hover:scale-105 border-2 border-blue-200"
+                >
+                  <DollarSign className="w-8 h-8 text-emerald-600" />
+                  <div className="text-left">
+                    <p className="font-bold text-gray-900">Modificar Base</p>
+                    <p className="text-sm text-gray-600">Base inicial del período</p>
+                  </div>
+                </button>
 
-          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
-            <div className="flex items-center gap-3 mb-3">
-              <CheckCircle className="w-6 h-6 text-green-500" />
-              <h4 className="font-bold text-gray-800">Más Rentable</h4>
-            </div>
-            <p className="text-sm text-gray-700 mb-3">{dashboardData.alertas.masRentable}</p>
-            {dashboardData.alertas.stockBajo.length > 0 && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                <p className="text-xs font-semibold text-green-800 mb-1">💡 Sugerencia:</p>
-                <p className="text-sm text-green-700">Reponer {dashboardData.alertas.stockBajo[0]}</p>
+                <button
+                  onClick={() => setShowInventarioModal(true)}
+                  className="flex items-center gap-3 bg-white p-4 rounded-lg shadow hover:shadow-md transition-all hover:scale-105 border-2 border-blue-200"
+                >
+                  <Package className="w-8 h-8 text-blue-600" />
+                  <div className="text-left">
+                    <p className="font-bold text-gray-900">Modificar Inventario</p>
+                    <p className="text-sm text-gray-600">Ajustar stock de productos</p>
+                  </div>
+                </button>
+
+                <button
+                  onClick={() => setShowApodosModal(true)}
+                  className="flex items-center gap-3 bg-white p-4 rounded-lg shadow hover:shadow-md transition-all hover:scale-105 border-2 border-blue-200"
+                >
+                  <Edit2 className="w-8 h-8 text-purple-600" />
+                  <div className="text-left">
+                    <p className="font-bold text-gray-900">Modificar Apodos</p>
+                    <p className="text-sm text-gray-600">Gestionar alias de productos</p>
+                  </div>
+                </button>
               </div>
-            )}
-          </div>
-        </div>
+            </div>
 
-        {/* Indicadores Clave */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-          <h3 className="text-lg font-bold text-gray-800 mb-4">Indicadores Clave de Rendimiento</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            
-            
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4">
-              <p className="text-sm text-blue-700 font-medium mb-1">Mayor Rotación</p>
-              <p className="text-lg font-bold text-blue-900">{dashboardData.kpis.mayorRotacion}</p>
-            </div>
-            
-            <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4">
-              <p className="text-sm text-purple-700 font-medium mb-1">Más Rentable</p>
-              <p className="text-lg font-bold text-purple-900">{dashboardData.kpis.masRentable}</p>
-            </div>
-            
-            <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg p-4">
-              <p className="text-sm text-amber-700 font-medium mb-1">Total Productos</p>
-              <p className="text-2xl font-bold text-amber-900">{allProductos.length}</p>
+            {/* Información adicional */}
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+              <p className="text-sm text-yellow-800">
+                ℹ️ <strong>Nota:</strong> Los cambios realizados en esta sección afectarán directamente tu inventario y reportes. Asegúrate de tener la información correcta antes de guardar.
+              </p>
             </div>
           </div>
-        </div>
+        )}
 
         {/* MODAL DE CIERRE SIMPLIFICADO */}
         {showCierreModal && (

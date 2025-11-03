@@ -185,7 +185,7 @@ const Dashboard = () => {
         .from('movimientos_inventario')
         .select('*')
         .eq('tenant_id', tenant_id)
-        .eq('tipo', 'consumo_personal')
+        .eq('tipo', 'consumo')
         .eq('activo', true)
         .is('deleted_at', null)
         .gte('created_at', startDateISO)

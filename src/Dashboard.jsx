@@ -870,7 +870,7 @@ const gastosCompletos = [
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-100 p-4 sm:p-6">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-100 p-4 sm:p-6 pb-24 sm:pb-6">
       <div className="max-w-7xl mx-auto">
         {/* Header con Fechas Visibles */}
 <div className="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-lg shadow-lg p-4 sm:p-6 mb-6 text-white">
@@ -958,98 +958,136 @@ const gastosCompletos = [
     </div>
   </div>
 
-    {/* Sistema de Tabs */}
-    <div className="bg-white rounded-lg shadow-md mb-6 overflow-hidden">
-          <div className="flex border-b border-gray-200 overflow-x-auto">
+            {/* TABS PARA DESKTOP - Horizontal */}
+            <div className="hidden sm:block bg-white rounded-lg shadow-md mb-6 overflow-hidden">
+          <div className="flex border-b border-gray-200">
             <button
               onClick={() => setActiveTab('hoy')}
-              className={`flex-1 min-w-[120px] px-4 py-4 font-semibold transition-all duration-200 whitespace-nowrap ${
+              className={`flex-1 px-6 py-4 font-semibold transition-all duration-200 ${
                 activeTab === 'hoy'
                   ? 'bg-emerald-600 text-white border-b-4 border-emerald-700'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-emerald-600'
               }`}
             >
               <div className="flex flex-col items-center justify-center gap-1">
-                {/* ICONO: Casa para HOY */}
-                <svg 
-                  className="w-6 h-6" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
-                >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
                 </svg>
-                <span className="text-xs sm:text-sm">Hoy</span>
+                <span>Hoy</span>
               </div>
             </button>
 
             <button
               onClick={() => setActiveTab('resumen')}
-              className={`flex-1 min-w-[120px] px-4 py-4 font-semibold transition-all duration-200 whitespace-nowrap ${
+              className={`flex-1 px-6 py-4 font-semibold transition-all duration-200 ${
                 activeTab === 'resumen'
                   ? 'bg-emerald-600 text-white border-b-4 border-emerald-700'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-emerald-600'
               }`}
             >
               <div className="flex flex-col items-center justify-center gap-1">
-                {/* ICONO: Grid para RESUMEN */}
-                <svg 
-                  className="w-6 h-6" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
-                >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
                 </svg>
-                <span className="text-xs sm:text-sm">Resumen</span>
+                <span>Resumen</span>
               </div>
             </button>
 
             <button
               onClick={() => setActiveTab('detalles')}
-              className={`flex-1 min-w-[120px] px-4 py-4 font-semibold transition-all duration-200 whitespace-nowrap ${
+              className={`flex-1 px-6 py-4 font-semibold transition-all duration-200 ${
                 activeTab === 'detalles'
                   ? 'bg-emerald-600 text-white border-b-4 border-emerald-700'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-emerald-600'
               }`}
             >
               <div className="flex flex-col items-center justify-center gap-1">
-                {/* ICONO: Portapapeles para DETALLES */}
-                <svg 
-                  className="w-6 h-6" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
-                >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                <span className="text-xs sm:text-sm">Detalles</span>
+                <span>Detalles</span>
               </div>
             </button>
 
             <button
               onClick={() => setActiveTab('gestion')}
-              className={`flex-1 min-w-[120px] px-4 py-4 font-semibold transition-all duration-200 whitespace-nowrap ${
+              className={`flex-1 px-6 py-4 font-semibold transition-all duration-200 ${
                 activeTab === 'gestion'
                   ? 'bg-emerald-600 text-white border-b-4 border-emerald-700'
                   : 'text-gray-600 hover:bg-gray-50 hover:text-emerald-600'
               }`}
             >
               <div className="flex flex-col items-center justify-center gap-1">
-                {/* ICONO: Usuario para GESTIÓN */}
-                <svg 
-                  className="w-6 h-6" 
-                  fill="none" 
-                  stroke="currentColor" 
-                  viewBox="0 0 24 24"
-                >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
-                <span className="text-xs sm:text-sm">Gestión</span>
+                <span>Gestión</span>
               </div>
             </button>
           </div>
         </div>
+
+        {/* TABS PARA MÓVIL - Bottom Navigation Fixed */}
+        <div className="block sm:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40">
+          <div className="flex justify-around items-center max-w-7xl mx-auto">
+            <button
+              onClick={() => setActiveTab('hoy')}
+              className={`flex-1 py-3 flex flex-col items-center gap-1 transition-colors font-semibold border-t-4 ${
+                activeTab === 'hoy'
+                  ? 'text-emerald-600 border-emerald-600'
+                  : 'text-gray-600 border-transparent hover:text-emerald-600'
+              }`}
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+              <span className="text-xs">Hoy</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('resumen')}
+              className={`flex-1 py-3 flex flex-col items-center gap-1 transition-colors font-semibold border-t-4 ${
+                activeTab === 'resumen'
+                  ? 'text-emerald-600 border-emerald-600'
+                  : 'text-gray-600 border-transparent hover:text-emerald-600'
+              }`}
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+              </svg>
+              <span className="text-xs">Resumen</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('detalles')}
+              className={`flex-1 py-3 flex flex-col items-center gap-1 transition-colors font-semibold border-t-4 ${
+                activeTab === 'detalles'
+                  ? 'text-emerald-600 border-emerald-600'
+                  : 'text-gray-600 border-transparent hover:text-emerald-600'
+              }`}
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <span className="text-xs">Detalles</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('gestion')}
+              className={`flex-1 py-3 flex flex-col items-center gap-1 transition-colors font-semibold border-t-4 ${
+                activeTab === 'gestion'
+                  ? 'text-emerald-600 border-emerald-600'
+                  : 'text-gray-600 border-transparent hover:text-emerald-600'
+              }`}
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              <span className="text-xs">Gestión</span>
+            </button>
+          </div>
+        </div>
+
 
 </div>
 

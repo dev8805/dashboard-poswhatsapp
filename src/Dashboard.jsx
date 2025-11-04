@@ -47,6 +47,10 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState('hoy');
   // Estados para comparativas
   const [datosComparativos, setDatosComparativos] = useState(null);
+  // Estados para sistema de tarjetas swipeable en móvil
+  const [currentCard, setCurrentCard] = useState(0);
+  const [touchStart, setTouchStart] = useState(0);
+  const [touchEnd, setTouchEnd] = useState(0);
 
   // FUNCIONES PARA ZONA HORARIA BOGOTÁ
   const getStartOfDayInBogota = (dateString) => {
@@ -926,6 +930,50 @@ const gastosCompletos = [
     }
   };
 
+  // Funciones para gestos táctiles de tarjetas swipeable
+  const handleTouchStart = (e) => {
+    setTouchStart(e.touches[0].clientX);
+  };
+
+  const handleTouchMove = (e) => {
+    setTouchEnd(e.touches[0].clientX);
+  };
+
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > 50;
+    const isRightSwipe = distance < -50;
+    
+    if (isLeftSwipe && currentCard < 3) {
+      setCurrentCard(currentCard + 1);
+    }
+    
+    if (isRightSwipe && currentCard > 0) {
+      setCurrentCard(currentCard - 1);
+    }
+    
+    setTouchStart(0);
+    setTouchEnd(0);
+  };
+
+  const nextCard = () => {
+    if (currentCard < 3) {
+      setCurrentCard(currentCard + 1);
+    }
+  };
+
+  const prevCard = () => {
+    if (currentCard > 0) {
+      setCurrentCard(currentCard - 1);
+    }
+  };
+
+  const goToCard = (index) => {
+    setCurrentCard(index);
+  };
+
   const ComparisonBadge = ({ value, isPositiveGood = true }) => {
     if (!value || value === 0) return null;
     
@@ -1140,7 +1188,7 @@ const gastosCompletos = [
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-100 p-4 sm:p-6 pb-24 sm:pb-6">
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-100 p-2 sm:p-6 pb-24 sm:pb-6">
       <div className="max-w-7xl mx-auto">
         {/* Header con Fechas Visibles */}
 <div className="bg-gradient-to-r from-emerald-600 to-teal-600 rounded-lg shadow-lg p-4 sm:p-6 mb-6 text-white">
@@ -1452,6 +1500,7 @@ const gastosCompletos = [
         )}
 
         {/* ========== TAB: HOY ========== */}
+        {/* ========== TAB: HOY ========== */}
         {activeTab === 'hoy' && (
           <div className="space-y-6">
 
@@ -1465,231 +1514,605 @@ const gastosCompletos = [
               </div>
             )}
 
-            {/* RESUMEN RÁPIDO DE ALERTAS */}
-            {(dashboardData.alertas.stockBajo.length > 0 || dashboardData.alertas.sinMovimiento.length > 0) && (
-              <div className="bg-gradient-to-r from-red-500 to-orange-500 rounded-lg shadow-xl p-4 mb-6 text-white animate-pulse">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <AlertCircle className="w-8 h-8" />
-                    <div>
-                      <p className="font-bold text-lg">¡Atención Requerida!</p>
-                      <p className="text-sm opacity-90">
-                        {dashboardData.alertas.stockBajo.length > 0 && `${dashboardData.alertas.stockBajo.length} producto(s) con stock bajo`}
-                        {dashboardData.alertas.stockBajo.length > 0 && dashboardData.alertas.sinMovimiento.length > 0 && ' • '}
-                        {dashboardData.alertas.sinMovimiento.length > 0 && `${dashboardData.alertas.sinMovimiento.length} sin movimiento`}
-                      </p>
+            {/* VERSIÓN DESKTOP - Sin cambios */}
+            <div className="hidden md:block">
+              {/* RESUMEN RÁPIDO DE ALERTAS */}
+              {(dashboardData.alertas.stockBajo.length > 0 || dashboardData.alertas.sinMovimiento.length > 0) && (
+                <div className="bg-gradient-to-r from-red-500 to-orange-500 rounded-lg shadow-xl p-4 mb-6 text-white animate-pulse">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <AlertCircle className="w-8 h-8" />
+                      <div>
+                        <p className="font-bold text-lg">¡Atención Requerida!</p>
+                        <p className="text-sm opacity-90">
+                          {dashboardData.alertas.stockBajo.length > 0 && `${dashboardData.alertas.stockBajo.length} producto(s) con stock bajo`}
+                          {dashboardData.alertas.stockBajo.length > 0 && dashboardData.alertas.sinMovimiento.length > 0 && ' • '}
+                          {dashboardData.alertas.sinMovimiento.length > 0 && `${dashboardData.alertas.sinMovimiento.length} sin movimiento`}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        document.querySelector('[data-alertas]')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }}
+                      className="bg-white text-red-600 px-4 py-2 rounded-lg font-bold hover:bg-red-50 transition-colors flex items-center gap-2 whitespace-nowrap"
+                    >
+                      Ver Detalles
+                      <AlertCircle className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Resumen Ejecutivo con Comparativas */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-emerald-500">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex-1">
+                      <p className="text-gray-600 text-sm font-medium">Total Ventas</p>
+                      <p className="text-2xl font-bold text-gray-800 mt-1">{formatCurrency(dashboardData.resumen.ventas)}</p>
+                      {datosComparativos && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <ComparisonBadge value={datosComparativos.variacionVentas} isPositiveGood={true} />
+                          <span className="text-xs text-gray-500">vs período anterior</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="bg-emerald-100 p-3 rounded-full">
+                      <DollarSign className="w-6 h-6 text-emerald-600" />
                     </div>
                   </div>
-                  <button
-                    onClick={() => {
-                      // Scroll suave hacia las alertas
-                      document.querySelector('[data-alertas]')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }}
-                    className="bg-white text-red-600 px-4 py-2 rounded-lg font-bold hover:bg-red-50 transition-colors flex items-center gap-2 whitespace-nowrap"
-                  >
-                    Ver Detalles
-                    <AlertCircle className="w-4 h-4" />
-                  </button>
                 </div>
-              </div>
-            )}
 
-        {/* Resumen Ejecutivo con Comparativas */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-emerald-500">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex-1">
-                <p className="text-gray-600 text-sm font-medium">Total Ventas</p>
-                <p className="text-2xl font-bold text-gray-800 mt-1">{formatCurrency(dashboardData.resumen.ventas)}</p>
-                {datosComparativos && (
-                  <div className="mt-2 flex items-center gap-2">
-                    <ComparisonBadge value={datosComparativos.variacionVentas} isPositiveGood={true} />
-                    <span className="text-xs text-gray-500">vs período anterior</span>
-                  </div>
-                )}
-              </div>
-              <div className="bg-emerald-100 p-3 rounded-full">
-                <DollarSign className="w-6 h-6 text-emerald-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex-1">
-                <p className="text-gray-600 text-sm font-medium">Total Compras</p>
-                <p className="text-2xl font-bold text-gray-800 mt-1">{formatCurrency(dashboardData.resumen.compras)}</p>
-                {datosComparativos && datosComparativos.comprasAnterior > 0 && (
-                  <div className="mt-2">
-                    <span className="text-xs text-gray-500">
-                      Anterior: {formatCurrency(datosComparativos.comprasAnterior)}
-                    </span>
-                  </div>
-                )}
-              </div>
-              <div className="bg-blue-100 p-3 rounded-full">
-                <ShoppingCart className="w-6 h-6 text-blue-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-amber-500">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex-1">
-                <p className="text-gray-600 text-sm font-medium">Total Gastos</p>
-                <p className="text-2xl font-bold text-gray-800 mt-1">{formatCurrency(dashboardData.resumen.gastos)}</p>
-                {datosComparativos && (
-                  <div className="mt-2 flex items-center gap-2">
-                    <ComparisonBadge value={datosComparativos.variacionGastos} isPositiveGood={false} />
-                    <span className="text-xs text-gray-500">vs período anterior</span>
-                  </div>
-                )}
-              </div>
-              <div className="bg-amber-100 p-3 rounded-full">
-                <Package className="w-6 h-6 text-amber-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-purple-500">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex-1">
-                <p className="text-gray-600 text-sm font-medium">Utilidad Bruta</p>
-                <p className="text-2xl font-bold text-gray-800 mt-1">{formatCurrency(dashboardData.resumen.utilidad)}</p>
-                {datosComparativos && (
-                  <div className="mt-2 flex items-center gap-2">
-                    <ComparisonBadge value={datosComparativos.variacionUtilidad} isPositiveGood={true} />
-                    <span className="text-xs text-gray-500">vs período anterior</span>
-                  </div>
-                )}
-              </div>
-              <div className="bg-purple-100 p-3 rounded-full">
-                <TrendingUp className="w-6 h-6 text-purple-600" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ALERTAS CRÍTICAS - Prioridad Alta */}
-        <div data-alertas className="bg-gradient-to-br from-red-50 to-orange-50 rounded-lg p-4 sm:p-6 mb-6 border-2 border-red-200 shadow-lg">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="bg-red-600 p-2 rounded-full animate-pulse">
-              <AlertCircle className="w-6 h-6 text-white" />
-            </div>
-            <h3 className="text-xl font-bold text-red-900">
-              ⚠️ Alertas Críticas
-            </h3>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <AlertCard
-              type="critical"
-              title="Stock Bajo - Requiere Acción"
-              items={dashboardData.alertas.stockBajo}
-              icon={AlertCircle}
-              suggestion={dashboardData.alertas.stockBajo.length > 0 ? `Reponer ${dashboardData.alertas.stockBajo[0].split(' (')[0]} cuanto antes` : null}
-            />
-
-            <AlertCard
-              type="warning"
-              title="Productos Sin Movimiento"
-              items={dashboardData.alertas.sinMovimiento}
-              icon={AlertTriangle}
-              suggestion={dashboardData.alertas.sinMovimiento.length > 0 ? "Considere promocionar estos productos" : null}
-            />
-          </div>
-
-          {(dashboardData.alertas.stockBajo.length > 0 || dashboardData.alertas.sinMovimiento.length > 0) && (
-            <div className="bg-white rounded-lg p-3 border border-red-300">
-              <p className="text-sm text-red-900 font-semibold">
-                🔔 <strong>Acción requerida:</strong> {dashboardData.alertas.stockBajo.length} producto(s) con stock crítico y {dashboardData.alertas.sinMovimiento.length} sin movimiento en este período.
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* INFORMACIÓN POSITIVA */}
-        <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-4 sm:p-6 mb-6 border-2 border-green-200 shadow-lg">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="bg-green-600 p-2 rounded-full">
-              <CheckCircle className="w-6 h-6 text-white" />
-            </div>
-            <h3 className="text-xl font-bold text-green-900">
-              ✅ Destacados del Período
-            </h3>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="bg-white rounded-lg p-4 border-2 border-green-300">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="bg-green-100 p-2 rounded-full">
-                  <TrendingUp className="w-5 h-5 text-green-600" />
-                </div>
-                <h4 className="font-bold text-green-900">Más Rentable</h4>
-              </div>
-              <p className="text-lg font-bold text-green-700 mb-2">
-                {dashboardData.alertas.masRentable}
-              </p>
-              <p className="text-xs text-green-600">
-                Este producto ofrece el mejor margen de utilidad
-              </p>
-            </div>
-
-            <div className="bg-white rounded-lg p-4 border-2 border-blue-300">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="bg-blue-100 p-2 rounded-full">
-                  <Package className="w-5 h-5 text-blue-600" />
-                </div>
-                <h4 className="font-bold text-blue-900">Mayor Rotación</h4>
-              </div>
-              <p className="text-lg font-bold text-blue-700 mb-2">
-                {dashboardData.kpis.mayorRotacion}
-              </p>
-              <p className="text-xs text-blue-600">
-                El producto más vendido del período
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Top 3 Productos del Día */}
-        <div className="bg-white rounded-lg shadow-md p-6 mb-6">
-              <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <span className="text-2xl">🏆</span>
-                Top 3 Productos Más Vendidos Hoy
-              </h3>
-              {dashboardData.topProductos && dashboardData.topProductos.length > 0 ? (
-                <div className="space-y-4">
-                  {dashboardData.topProductos.slice(0, 3).map((producto, index) => {
-                    const medallas = ['🥇', '🥈', '🥉'];
-                    const colores = ['bg-yellow-50 border-yellow-300', 'bg-gray-50 border-gray-300', 'bg-orange-50 border-orange-300'];
-                    return (
-                      <div key={index} className={`border-2 ${colores[index]} rounded-lg p-4`}>
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-3">
-                            <span className="text-3xl">{medallas[index]}</span>
-                            <div>
-                              <p className="font-bold text-gray-900 text-lg">{producto.nombre}</p>
-                              <p className="text-sm text-gray-600">Vendidos: {producto.vendidos} und</p>
-                            </div>
-                          </div>
-                          <p className="text-xl font-bold text-emerald-600">{formatCurrency(producto.total)}</p>
+                <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex-1">
+                      <p className="text-gray-600 text-sm font-medium">Total Compras</p>
+                      <p className="text-2xl font-bold text-gray-800 mt-1">{formatCurrency(dashboardData.resumen.compras)}</p>
+                      {datosComparativos && datosComparativos.comprasAnterior > 0 && (
+                        <div className="mt-2">
+                          <span className="text-xs text-gray-500">
+                            Anterior: {formatCurrency(datosComparativos.comprasAnterior)}
+                          </span>
                         </div>
-                        <div className="flex items-center gap-4 text-sm text-gray-600">
-                          <span>📦 Stock: {Math.round(producto.stock)} und</span>
-                          <span>💰 Margen: {producto.margen}%</span>
+                      )}
+                    </div>
+                    <div className="bg-blue-100 p-3 rounded-full">
+                      <ShoppingCart className="w-6 h-6 text-blue-600" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-amber-500">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex-1">
+                      <p className="text-gray-600 text-sm font-medium">Total Gastos</p>
+                      <p className="text-2xl font-bold text-gray-800 mt-1">{formatCurrency(dashboardData.resumen.gastos)}</p>
+                      {datosComparativos && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <ComparisonBadge value={datosComparativos.variacionGastos} isPositiveGood={false} />
+                          <span className="text-xs text-gray-500">vs período anterior</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="bg-amber-100 p-3 rounded-full">
+                      <Package className="w-6 h-6 text-amber-600" />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-purple-500">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex-1">
+                      <p className="text-gray-600 text-sm font-medium">Utilidad Bruta</p>
+                      <p className="text-2xl font-bold text-gray-800 mt-1">{formatCurrency(dashboardData.resumen.utilidad)}</p>
+                      {datosComparativos && (
+                        <div className="mt-2 flex items-center gap-2">
+                          <ComparisonBadge value={datosComparativos.variacionUtilidad} isPositiveGood={true} />
+                          <span className="text-xs text-gray-500">vs período anterior</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="bg-purple-100 p-3 rounded-full">
+                      <TrendingUp className="w-6 h-6 text-purple-600" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* ALERTAS CRÍTICAS - Prioridad Alta */}
+              <div data-alertas className="bg-gradient-to-br from-red-50 to-orange-50 rounded-lg p-4 sm:p-6 mb-6 border-2 border-red-200 shadow-lg">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="bg-red-600 p-2 rounded-full animate-pulse">
+                    <AlertCircle className="w-6 h-6 text-white" />
+                  </div>
+                  <h3 className="text-xl font-bold text-red-900">
+                    ⚠️ Alertas Críticas
+                  </h3>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <AlertCard
+                    type="critical"
+                    title="Stock Bajo - Requiere Acción"
+                    items={dashboardData.alertas.stockBajo}
+                    icon={AlertCircle}
+                    suggestion={dashboardData.alertas.stockBajo.length > 0 ? `Reponer ${dashboardData.alertas.stockBajo[0].split(' (')[0]} cuanto antes` : null}
+                  />
+
+                  <AlertCard
+                    type="warning"
+                    title="Productos Sin Movimiento"
+                    items={dashboardData.alertas.sinMovimiento}
+                    icon={AlertTriangle}
+                    suggestion={dashboardData.alertas.sinMovimiento.length > 0 ? "Considere promocionar estos productos" : null}
+                  />
+                </div>
+
+                {(dashboardData.alertas.stockBajo.length > 0 || dashboardData.alertas.sinMovimiento.length > 0) && (
+                  <div className="bg-white rounded-lg p-3 border border-red-300">
+                    <p className="text-sm text-red-900 font-semibold">
+                      📢 <strong>Acción requerida:</strong> {dashboardData.alertas.stockBajo.length} producto(s) con stock crítico y {dashboardData.alertas.sinMovimiento.length} sin movimiento en este período.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* INFORMACIÓN POSITIVA */}
+              <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-4 sm:p-6 mb-6 border-2 border-green-200 shadow-lg">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="bg-green-600 p-2 rounded-full">
+                    <CheckCircle className="w-6 h-6 text-white" />
+                  </div>
+                  <h3 className="text-xl font-bold text-green-900">
+                    ✅ Destacados del Período
+                  </h3>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-white rounded-lg p-4 border-2 border-green-300">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="bg-green-100 p-2 rounded-full">
+                        <TrendingUp className="w-5 h-5 text-green-600" />
+                      </div>
+                      <h4 className="font-bold text-green-900">Más Rentable</h4>
+                    </div>
+                    <p className="text-lg font-bold text-green-700 mb-2">
+                      {dashboardData.alertas.masRentable}
+                    </p>
+                    <p className="text-xs text-green-600">
+                      Este producto ofrece el mejor margen de utilidad
+                    </p>
+                  </div>
+
+                  <div className="bg-white rounded-lg p-4 border-2 border-blue-300">
+                    <div className="flex items-center gap-3 mb-2">
+                      <div className="bg-blue-100 p-2 rounded-full">
+                        <Package className="w-5 h-5 text-blue-600" />
+                      </div>
+                      <h4 className="font-bold text-blue-900">Mayor Rotación</h4>
+                    </div>
+                    <p className="text-lg font-bold text-blue-700 mb-2">
+                      {dashboardData.kpis.mayorRotacion}
+                    </p>
+                    <p className="text-xs text-blue-600">
+                      El producto más vendido del período
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Top 3 Productos del Día */}
+              <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+                <h3 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                  <span className="text-2xl">🏆</span>
+                  Top 3 Productos Más Vendidos Hoy
+                </h3>
+                {dashboardData.topProductos && dashboardData.topProductos.length > 0 ? (
+                  <div className="space-y-4">
+                    {dashboardData.topProductos.slice(0, 3).map((producto, index) => {
+                      const medallas = ['🥇', '🥈', '🥉'];
+                      const colores = ['bg-yellow-50 border-yellow-300', 'bg-gray-50 border-gray-300', 'bg-orange-50 border-orange-300'];
+                      return (
+                        <div key={index} className={`border-2 ${colores[index]} rounded-lg p-4`}>
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-3">
+                              <span className="text-3xl">{medallas[index]}</span>
+                              <div>
+                                <p className="font-bold text-gray-900 text-lg">{producto.nombre}</p>
+                                <p className="text-sm text-gray-600">Vendidos: {producto.vendidos} und</p>
+                              </div>
+                            </div>
+                            <p className="text-xl font-bold text-emerald-600">{formatCurrency(producto.total)}</p>
+                          </div>
+                          <div className="flex items-center gap-4 text-sm text-gray-600">
+                            <span>📦 Stock: {Math.round(producto.stock)} und</span>
+                            <span>💰 Margen: {producto.margen}%</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-center py-8">No hay ventas registradas hoy</p>
+                )}
+              </div>
+            </div>
+
+            {/* VERSIÓN MÓVIL - SISTEMA DE TARJETAS SWIPEABLE */}
+            <div className="block md:hidden">
+              {/* Indicador de tarjetas */}
+              <div className="flex justify-center gap-2 mb-4">
+                {[0, 1, 2, 3].map((index) => (
+                  <button
+                    key={index}
+                    onClick={() => goToCard(index)}
+                    className={`h-2 rounded-full transition-all duration-300 ${
+                      currentCard === index 
+                        ? 'w-8 bg-emerald-600' 
+                        : 'w-2 bg-gray-300'
+                    }`}
+                  />
+                ))}
+              </div>
+
+              {/* Contenedor de tarjetas con gestos táctiles */}
+              <div 
+                className="relative overflow-hidden"
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+              >
+                <div 
+                  className="flex transition-transform duration-300 ease-out"
+                  style={{ transform: `translateX(-${currentCard * 100}%)` }}
+                >
+                  {/* TARJETA 1: RESUMEN DEL DÍA */}
+                  <div className="w-full flex-shrink-0 px-2">
+                    <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl shadow-2xl p-6 text-white min-h-[500px] flex flex-col">
+                      <div className="flex items-center justify-between mb-6">
+                        <h2 className="text-2xl font-bold flex items-center gap-2">
+                          <DollarSign className="w-8 h-8" />
+                          Resumen del Día
+                        </h2>
+                        <span className="text-sm bg-white/20 px-3 py-1 rounded-full">
+                          {getTodayInBogota()}
+                        </span>
+                      </div>
+
+                      <div className="flex-1 space-y-4">
+                        {/* Ventas */}
+                        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm opacity-90">💰 Ventas</span>
+                            {datosComparativos && (
+                              <ComparisonBadge value={datosComparativos.variacionVentas} isPositiveGood={true} />
+                            )}
+                          </div>
+                          <p className="text-3xl font-bold">{formatCurrency(dashboardData.resumen.ventas)}</p>
+                        </div>
+
+                        {/* Utilidad */}
+                        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm opacity-90">📈 Utilidad</span>
+                            {datosComparativos && (
+                              <ComparisonBadge value={datosComparativos.variacionUtilidad} isPositiveGood={true} />
+                            )}
+                          </div>
+                          <p className="text-3xl font-bold">{formatCurrency(dashboardData.resumen.utilidad)}</p>
+                        </div>
+
+                        {/* Compras y Gastos */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+                            <span className="text-xs opacity-90">🛒 Compras</span>
+                            <p className="text-xl font-bold mt-1">{formatCurrency(dashboardData.resumen.compras)}</p>
+                          </div>
+                          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+                            <span className="text-xs opacity-90">📦 Gastos</span>
+                            <p className="text-xl font-bold mt-1">{formatCurrency(dashboardData.resumen.gastos)}</p>
+                          </div>
+                        </div>
+
+                        {/* Producto estrella */}
+                        <div className="bg-gradient-to-r from-yellow-400/20 to-orange-400/20 backdrop-blur-sm rounded-xl p-4 border border-yellow-400/30">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-2xl">⭐</span>
+                            <span className="text-sm font-semibold">Producto Estrella</span>
+                          </div>
+                          <p className="text-lg font-bold">{dashboardData.kpis.mayorRotacion}</p>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <p className="text-gray-500 text-center py-8">No hay ventas registradas hoy</p>
-              )}
-            </div>
 
-          </div>
-        )}
+                      <div className="mt-4 text-center">
+                        <p className="text-xs opacity-75">Desliza para ver más →</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* TARJETA 2: ALERTAS CRÍTICAS */}
+                  <div className="w-full flex-shrink-0 px-2">
+                    <div className="bg-gradient-to-br from-red-500 to-orange-600 rounded-2xl shadow-2xl p-6 text-white min-h-[500px] flex flex-col">
+                      <div className="flex items-center justify-between mb-6">
+                        <h2 className="text-2xl font-bold flex items-center gap-2">
+                          <AlertCircle className="w-8 h-8 animate-pulse" />
+                          Alertas
+                        </h2>
+                        <span className="text-sm bg-white/20 px-3 py-1 rounded-full">
+                          {dashboardData.alertas.stockBajo.length + dashboardData.alertas.sinMovimiento.length} total
+                        </span>
+                      </div>
+
+                      <div className="flex-1 space-y-4 overflow-y-auto">
+                        {/* Stock Bajo */}
+                        {dashboardData.alertas.stockBajo.length > 0 && (
+                          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+                            <div className="flex items-center gap-2 mb-3">
+                              <div className="bg-red-600 p-2 rounded-full">
+                                <AlertCircle className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <h3 className="font-bold">Stock Crítico</h3>
+                                <p className="text-xs opacity-75">{dashboardData.alertas.stockBajo.length} productos</p>
+                              </div>
+                            </div>
+                            <ul className="space-y-2 max-h-40 overflow-y-auto">
+                              {dashboardData.alertas.stockBajo.slice(0, 5).map((item, index) => (
+                                <li key={index} className="text-sm bg-white/5 p-2 rounded flex items-center gap-2">
+                                  <span className="text-red-300">•</span>
+                                  <span className="flex-1">{item}</span>
+                                </li>
+                              ))}
+                            </ul>
+                            {dashboardData.alertas.stockBajo.length > 5 && (
+                              <p className="text-xs mt-2 opacity-75 italic">
+                                +{dashboardData.alertas.stockBajo.length - 5} más...
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Sin Movimiento */}
+                        {dashboardData.alertas.sinMovimiento.length > 0 && (
+                          <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20">
+                            <div className="flex items-center gap-2 mb-3">
+                              <div className="bg-yellow-600 p-2 rounded-full">
+                                <AlertTriangle className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <h3 className="font-bold">Sin Movimiento</h3>
+                                <p className="text-xs opacity-75">{dashboardData.alertas.sinMovimiento.length} productos</p>
+                              </div>
+                            </div>
+                            <ul className="space-y-2 max-h-40 overflow-y-auto">
+                              {dashboardData.alertas.sinMovimiento.slice(0, 5).map((item, index) => (
+                                <li key={index} className="text-sm bg-white/5 p-2 rounded flex items-center gap-2">
+                                  <span className="text-yellow-300">•</span>
+                                  <span className="flex-1">{item}</span>
+                                </li>
+                              ))}
+                            </ul>
+                            {dashboardData.alertas.sinMovimiento.length > 5 && (
+                              <p className="text-xs mt-2 opacity-75 italic">
+                                +{dashboardData.alertas.sinMovimiento.length - 5} más...
+                              </p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Todo en orden */}
+                        {dashboardData.alertas.stockBajo.length === 0 && dashboardData.alertas.sinMovimiento.length === 0 && (
+                          <div className="flex flex-col items-center justify-center h-full text-center">
+                            <CheckCircle className="w-16 h-16 mb-4 opacity-75" />
+                            <p className="text-xl font-bold mb-2">¡Todo en Orden!</p>
+                            <p className="text-sm opacity-75">No hay alertas críticas en este momento</p>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="mt-4 text-center">
+                        <p className="text-xs opacity-75">← Desliza para navegar →</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* TARJETA 3: TOP PRODUCTOS */}
+                  <div className="w-full flex-shrink-0 px-2">
+                    <div className="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-2xl shadow-2xl p-6 text-white min-h-[500px] flex flex-col">
+                      <div className="flex items-center justify-between mb-6">
+                        <h2 className="text-2xl font-bold flex items-center gap-2">
+                          <span className="text-3xl">🏆</span>
+                          Top Productos
+                        </h2>
+                        <span className="text-sm bg-white/20 px-3 py-1 rounded-full">
+                          Top 3
+                        </span>
+                      </div>
+
+                      <div className="flex-1 space-y-4">
+                        {dashboardData.topProductos && dashboardData.topProductos.length > 0 ? (
+                          dashboardData.topProductos.slice(0, 3).map((producto, index) => {
+                            const medallas = ['🥇', '🥈', '🥉'];
+                            const coloresGradiente = [
+                              'from-yellow-400/20 to-yellow-600/20 border-yellow-400/30',
+                              'from-gray-300/20 to-gray-500/20 border-gray-400/30',
+                              'from-orange-400/20 to-orange-600/20 border-orange-400/30'
+                            ];
+                            
+                            return (
+                              <div 
+                                key={index} 
+                                className={`bg-gradient-to-r ${coloresGradiente[index]} backdrop-blur-sm rounded-xl p-4 border`}
+                              >
+                                <div className="flex items-start gap-3 mb-3">
+                                  <span className="text-4xl">{medallas[index]}</span>
+                                  <div className="flex-1">
+                                    <h3 className="font-bold text-lg leading-tight">{producto.nombre}</h3>
+                                    <p className="text-sm opacity-90 mt-1">Vendidos: {producto.vendidos} und</p>
+                                  </div>
+                                </div>
+                                
+                                <div className="flex items-center justify-between pt-3 border-t border-white/20">
+                                  <div>
+                                    <p className="text-xs opacity-75">Total Ventas</p>
+                                    <p className="text-xl font-bold">{formatCurrency(producto.total)}</p>
+                                  </div>
+                                  <div className="text-right">
+                                    <p className="text-xs opacity-75">Stock / Margen</p>
+                                    <p className="text-sm font-semibold">{Math.round(producto.stock)} und • {producto.margen}%</p>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })
+                        ) : (
+                          <div className="flex flex-col items-center justify-center h-full text-center">
+                            <Package className="w-16 h-16 mb-4 opacity-50" />
+                            <p className="text-lg font-bold mb-2">Sin Ventas Registradas</p>
+                            <p className="text-sm opacity-75">No hay datos de productos para mostrar</p>
+                          </div>
+                        )}
+                        </div>
+
+<div className="mt-4 text-center">
+  <p className="text-xs opacity-75">← Desliza para navegar →</p>
+</div>
+</div>
+</div>
+
+{/* TARJETA 4: DESTACADOS */}
+<div className="w-full flex-shrink-0 px-2">
+<div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl shadow-2xl p-6 text-white min-h-[500px] flex flex-col">
+<div className="flex items-center justify-between mb-6">
+  <h2 className="text-2xl font-bold flex items-center gap-2">
+    <CheckCircle className="w-8 h-8" />
+    Destacados
+  </h2>
+  <span className="text-sm bg-white/20 px-3 py-1 rounded-full">
+    ✨ Lo mejor
+  </span>
+</div>
+
+<div className="flex-1 space-y-4">
+  {/* Más Rentable */}
+  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-5 border border-white/20">
+    <div className="flex items-center gap-3 mb-3">
+      <div className="bg-green-400 p-3 rounded-full">
+        <TrendingUp className="w-6 h-6 text-green-900" />
+      </div>
+      <div>
+        <h3 className="font-bold text-lg">Más Rentable</h3>
+        <p className="text-xs opacity-75">Mejor margen de utilidad</p>
+      </div>
+    </div>
+    <p className="text-xl font-bold bg-white/10 rounded-lg p-3 text-center">
+      {dashboardData.alertas.masRentable}
+    </p>
+  </div>
+
+  {/* Mayor Rotación */}
+  <div className="bg-white/10 backdrop-blur-sm rounded-xl p-5 border border-white/20">
+    <div className="flex items-center gap-3 mb-3">
+      <div className="bg-blue-400 p-3 rounded-full">
+        <Package className="w-6 h-6 text-blue-900" />
+      </div>
+      <div>
+        <h3 className="font-bold text-lg">Mayor Rotación</h3>
+        <p className="text-xs opacity-75">Producto más vendido</p>
+      </div>
+    </div>
+    <p className="text-xl font-bold bg-white/10 rounded-lg p-3 text-center">
+      {dashboardData.kpis.mayorRotacion}
+    </p>
+  </div>
+
+  {/* Estadísticas adicionales */}
+  <div className="grid grid-cols-2 gap-3">
+    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 text-center">
+      <p className="text-xs opacity-75 mb-1">Total Productos</p>
+      <p className="text-2xl font-bold">{allProductos.length}</p>
+    </div>
+    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-4 border border-white/20 text-center">
+      <p className="text-xs opacity-75 mb-1">Con Stock Bajo</p>
+      <p className="text-2xl font-bold text-red-300">{dashboardData.alertas.stockBajo.length}</p>
+    </div>
+  </div>
+
+  {/* Mensaje motivacional */}
+  <div className="bg-gradient-to-r from-yellow-400/20 to-orange-400/20 backdrop-blur-sm rounded-xl p-4 border border-yellow-400/30 text-center">
+    <p className="text-sm font-semibold mb-1">💪 ¡Sigue así!</p>
+    <p className="text-xs opacity-90">
+      {dashboardData.resumen.utilidad > 0 
+        ? `Utilidad positiva de ${formatCurrency(dashboardData.resumen.utilidad)}`
+        : "Revisa tus gastos para mejorar la utilidad"
+      }
+    </p>
+  </div>
+</div>
+
+<div className="mt-4 text-center">
+  <p className="text-xs opacity-75">← Primera tarjeta</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+
+{/* Botones de navegación */}
+<div className="flex justify-between items-center mt-6 px-4">
+<button
+onClick={prevCard}
+disabled={currentCard === 0}
+className={`p-3 rounded-full transition-all ${
+currentCard === 0 
+? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
+: 'bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95'
+}`}
+>
+<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+</svg>
+</button>
+
+<div className="text-center">
+<p className="text-sm font-semibold text-gray-700">
+{currentCard === 0 && '📊 Resumen'}
+{currentCard === 1 && '⚠️ Alertas'}
+{currentCard === 2 && '🏆 Top Productos'}
+{currentCard === 3 && '✨ Destacados'}
+</p>
+<p className="text-xs text-gray-500 mt-1">
+{currentCard + 1} de 4
+</p>
+</div>
+
+<button
+onClick={nextCard}
+disabled={currentCard === 3}
+className={`p-3 rounded-full transition-all ${
+currentCard === 3 
+? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
+: 'bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95'
+}`}
+>
+<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+</svg>
+</button>
+</div>
+
+{/* Hint de gestos */}
+<div className="mt-4 text-center">
+<p className="text-xs text-gray-500 flex items-center justify-center gap-2">
+<span>👆</span>
+<span>Desliza o usa las flechas para navegar</span>
+</p>
+</div>
+</div>
+
+</div>
+)}
 
         {/* ========== TAB: RESUMEN ========== */}
         {activeTab === 'resumen' && (

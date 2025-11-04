@@ -944,6 +944,90 @@ const gastosCompletos = [
     );
   };
 
+  const AlertCard = ({ type, title, items, icon: Icon, suggestion }) => {
+    const colors = {
+      critical: {
+        bg: 'bg-red-50',
+        border: 'border-red-500',
+        iconBg: 'bg-red-100',
+        iconColor: 'text-red-600',
+        textColor: 'text-red-800',
+        badgeBg: 'bg-red-600',
+        badgeText: 'text-white'
+      },
+      warning: {
+        bg: 'bg-yellow-50',
+        border: 'border-yellow-500',
+        iconBg: 'bg-yellow-100',
+        iconColor: 'text-yellow-600',
+        textColor: 'text-yellow-800',
+        badgeBg: 'bg-yellow-600',
+        badgeText: 'text-white'
+      },
+      success: {
+        bg: 'bg-green-50',
+        border: 'border-green-500',
+        iconBg: 'bg-green-100',
+        iconColor: 'text-green-600',
+        textColor: 'text-green-800',
+        badgeBg: 'bg-green-600',
+        badgeText: 'text-white'
+      }
+    };
+
+    const color = colors[type];
+
+    return (
+      <div className={`${color.bg} border-l-4 ${color.border} rounded-lg p-4 shadow-md hover:shadow-lg transition-shadow`}>
+        <div className="flex items-start gap-3">
+          <div className={`${color.iconBg} p-2 rounded-full flex-shrink-0`}>
+            <Icon className={`w-5 h-5 ${color.iconColor}`} />
+          </div>
+          
+          <div className="flex-1">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className={`font-bold ${color.textColor} text-sm`}>{title}</h4>
+              {items.length > 0 && (
+                <span className={`${color.badgeBg} ${color.badgeText} px-2 py-1 rounded-full text-xs font-bold`}>
+                  {items.length}
+                </span>
+              )}
+            </div>
+
+            {items.length > 0 ? (
+              <>
+                <ul className="space-y-1 mb-3">
+                  {items.slice(0, 3).map((item, index) => (
+                    <li key={index} className={`text-sm ${color.textColor} flex items-start gap-2`}>
+                      <span className="mt-1">•</span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+                
+                {items.length > 3 && (
+                  <p className={`text-xs ${color.textColor} italic`}>
+                    y {items.length - 3} producto(s) más...
+                  </p>
+                )}
+
+                {suggestion && (
+                  <div className={`mt-3 pt-3 border-t ${color.border}`}>
+                    <p className={`text-xs font-semibold ${color.textColor}`}>
+                      💡 Sugerencia: {suggestion}
+                    </p>
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-gray-500">✓ Todo en orden</p>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('es-CO', {
       style: 'currency',
@@ -1147,7 +1231,7 @@ const gastosCompletos = [
             {/* TABS PARA DESKTOP - Horizontal */}
             <div className="hidden sm:block bg-white rounded-lg shadow-md mb-6 overflow-hidden">
           <div className="flex border-b border-gray-200">
-            <button
+          <button
               onClick={() => setActiveTab('hoy')}
               className={`flex-1 px-6 py-4 font-semibold transition-all duration-200 ${
                 activeTab === 'hoy'
@@ -1216,18 +1300,20 @@ const gastosCompletos = [
         {/* TABS PARA MÓVIL - Bottom Navigation Fixed */}
         <div className="block sm:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-40">
           <div className="flex justify-around items-center max-w-7xl mx-auto">
-            <button
+          <button
               onClick={() => setActiveTab('hoy')}
-              className={`flex-1 py-3 flex flex-col items-center gap-1 transition-colors font-semibold border-t-4 ${
+              className={`flex-1 px-6 py-4 font-semibold transition-all duration-200 ${
                 activeTab === 'hoy'
-                  ? 'text-emerald-600 border-emerald-600'
-                  : 'text-gray-600 border-transparent hover:text-emerald-600'
+                  ? 'bg-emerald-600 text-white border-b-4 border-emerald-700'
+                  : 'text-gray-600 hover:bg-gray-50 hover:text-emerald-600'
               }`}
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-              </svg>
-              <span className="text-xs">Hoy</span>
+              <div className="flex flex-col items-center justify-center gap-1">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                </svg>
+                <span>Hoy</span>
+              </div>
             </button>
 
             <button
@@ -1379,6 +1465,35 @@ const gastosCompletos = [
               </div>
             )}
 
+            {/* RESUMEN RÁPIDO DE ALERTAS */}
+            {(dashboardData.alertas.stockBajo.length > 0 || dashboardData.alertas.sinMovimiento.length > 0) && (
+              <div className="bg-gradient-to-r from-red-500 to-orange-500 rounded-lg shadow-xl p-4 mb-6 text-white animate-pulse">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <AlertCircle className="w-8 h-8" />
+                    <div>
+                      <p className="font-bold text-lg">¡Atención Requerida!</p>
+                      <p className="text-sm opacity-90">
+                        {dashboardData.alertas.stockBajo.length > 0 && `${dashboardData.alertas.stockBajo.length} producto(s) con stock bajo`}
+                        {dashboardData.alertas.stockBajo.length > 0 && dashboardData.alertas.sinMovimiento.length > 0 && ' • '}
+                        {dashboardData.alertas.sinMovimiento.length > 0 && `${dashboardData.alertas.sinMovimiento.length} sin movimiento`}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      // Scroll suave hacia las alertas
+                      document.querySelector('[data-alertas]')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }}
+                    className="bg-white text-red-600 px-4 py-2 rounded-lg font-bold hover:bg-red-50 transition-colors flex items-center gap-2 whitespace-nowrap"
+                  >
+                    Ver Detalles
+                    <AlertCircle className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
         {/* Resumen Ejecutivo con Comparativas */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-emerald-500">
@@ -1455,58 +1570,85 @@ const gastosCompletos = [
           </div>
         </div>
 
-        {/* Alertas y Recomendaciones */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-red-500">
-            <div className="flex items-center gap-3 mb-3">
-              <AlertCircle className="w-6 h-6 text-red-500" />
-              <h4 className="font-bold text-gray-800">Stock Bajo</h4>
+        {/* ALERTAS CRÍTICAS - Prioridad Alta */}
+        <div data-alertas className="bg-gradient-to-br from-red-50 to-orange-50 rounded-lg p-4 sm:p-6 mb-6 border-2 border-red-200 shadow-lg">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="bg-red-600 p-2 rounded-full animate-pulse">
+              <AlertCircle className="w-6 h-6 text-white" />
             </div>
-            {dashboardData.alertas.stockBajo.length > 0 ? (
-              <ul className="space-y-2">
-                {dashboardData.alertas.stockBajo.map((item, index) => (
-                  <li key={index} className="text-sm text-gray-700 flex items-start gap-2">
-                    <span className="text-red-500 mt-1">•</span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-gray-500">No hay productos con stock bajo</p>
-            )}
+            <h3 className="text-xl font-bold text-red-900">
+              ⚠️ Alertas Críticas
+            </h3>
           </div>
 
-          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-yellow-500">
-            <div className="flex items-center gap-3 mb-3">
-              <AlertTriangle className="w-6 h-6 text-yellow-500" />
-              <h4 className="font-bold text-gray-800">Sin Movimiento</h4>
-            </div>
-            {dashboardData.alertas.sinMovimiento.length > 0 ? (
-              <ul className="space-y-2">
-                {dashboardData.alertas.sinMovimiento.map((item, index) => (
-                  <li key={index} className="text-sm text-gray-700 flex items-start gap-2">
-                    <span className="text-yellow-500 mt-1">•</span>
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-gray-500">Todos los productos tienen movimiento</p>
-            )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <AlertCard
+              type="critical"
+              title="Stock Bajo - Requiere Acción"
+              items={dashboardData.alertas.stockBajo}
+              icon={AlertCircle}
+              suggestion={dashboardData.alertas.stockBajo.length > 0 ? `Reponer ${dashboardData.alertas.stockBajo[0].split(' (')[0]} cuanto antes` : null}
+            />
+
+            <AlertCard
+              type="warning"
+              title="Productos Sin Movimiento"
+              items={dashboardData.alertas.sinMovimiento}
+              icon={AlertTriangle}
+              suggestion={dashboardData.alertas.sinMovimiento.length > 0 ? "Considere promocionar estos productos" : null}
+            />
           </div>
 
-          <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-green-500">
-            <div className="flex items-center gap-3 mb-3">
-              <CheckCircle className="w-6 h-6 text-green-500" />
-              <h4 className="font-bold text-gray-800">Más Rentable</h4>
+          {(dashboardData.alertas.stockBajo.length > 0 || dashboardData.alertas.sinMovimiento.length > 0) && (
+            <div className="bg-white rounded-lg p-3 border border-red-300">
+              <p className="text-sm text-red-900 font-semibold">
+                🔔 <strong>Acción requerida:</strong> {dashboardData.alertas.stockBajo.length} producto(s) con stock crítico y {dashboardData.alertas.sinMovimiento.length} sin movimiento en este período.
+              </p>
             </div>
-            <p className="text-sm text-gray-700 mb-3">{dashboardData.alertas.masRentable}</p>
-            {dashboardData.alertas.stockBajo.length > 0 && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                <p className="text-xs font-semibold text-green-800 mb-1">💡 Sugerencia:</p>
-                <p className="text-sm text-green-700">Reponer {dashboardData.alertas.stockBajo[0]}</p>
+          )}
+        </div>
+
+        {/* INFORMACIÓN POSITIVA */}
+        <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-4 sm:p-6 mb-6 border-2 border-green-200 shadow-lg">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="bg-green-600 p-2 rounded-full">
+              <CheckCircle className="w-6 h-6 text-white" />
+            </div>
+            <h3 className="text-xl font-bold text-green-900">
+              ✅ Destacados del Período
+            </h3>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-white rounded-lg p-4 border-2 border-green-300">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="bg-green-100 p-2 rounded-full">
+                  <TrendingUp className="w-5 h-5 text-green-600" />
+                </div>
+                <h4 className="font-bold text-green-900">Más Rentable</h4>
               </div>
-            )}
+              <p className="text-lg font-bold text-green-700 mb-2">
+                {dashboardData.alertas.masRentable}
+              </p>
+              <p className="text-xs text-green-600">
+                Este producto ofrece el mejor margen de utilidad
+              </p>
+            </div>
+
+            <div className="bg-white rounded-lg p-4 border-2 border-blue-300">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="bg-blue-100 p-2 rounded-full">
+                  <Package className="w-5 h-5 text-blue-600" />
+                </div>
+                <h4 className="font-bold text-blue-900">Mayor Rotación</h4>
+              </div>
+              <p className="text-lg font-bold text-blue-700 mb-2">
+                {dashboardData.kpis.mayorRotacion}
+              </p>
+              <p className="text-xs text-blue-600">
+                El producto más vendido del período
+              </p>
+            </div>
           </div>
         </div>
 

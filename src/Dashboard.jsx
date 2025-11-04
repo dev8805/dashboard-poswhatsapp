@@ -43,6 +43,8 @@ const Dashboard = () => {
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState(null);
   // Estado para sistema de tabs
   const [activeTab, setActiveTab] = useState('hoy');
+  // Estados para comparativas
+  const [datosComparativos, setDatosComparativos] = useState(null);
 
   // FUNCIONES PARA ZONA HORARIA BOGOTÁ
   const getStartOfDayInBogota = (dateString) => {
@@ -254,14 +256,134 @@ const gastosCompletos = [
   
   setGastosDelPeriodo(gastosCompletos);
 
-      const processedData = processDashboardData(ventas, compras, consumos, gastos, productos, mermas);
-      setDashboardData(processedData);
-      setLoading(false);
+  const processedData = processDashboardData(ventas, compras, consumos, gastos, productos, mermas);
+  setDashboardData(processedData);
+
+  // NUEVO: Cargar datos del período anterior para comparativas
+  if (dateRange !== 'custom') {
+    const periodoAnterior = getPeriodoAnterior(dateRange);
+    
+    // Obtener ventas del período anterior
+    const { data: ventasAnt } = await supabase
+      .from('ventas')
+      .select('*')
+      .eq('tenant_id', tenant_id)
+      .eq('activo', true)
+      .is('deleted_at', null)
+      .gte('created_at', periodoAnterior.startDate)
+      .lte('created_at', periodoAnterior.endDate);
+
+    // Obtener compras del período anterior
+    const { data: comprasAnt } = await supabase
+      .from('movimientos_inventario')
+      .select('*')
+      .eq('tenant_id', tenant_id)
+      .eq('tipo', 'entrada')
+      .eq('activo', true)
+      .is('deleted_at', null)
+      .gte('created_at', periodoAnterior.startDate)
+      .lte('created_at', periodoAnterior.endDate);
+
+    // Obtener gastos del período anterior
+    const { data: gastosAnt } = await supabase
+      .from('gastos')
+      .select('*')
+      .eq('tenant_id', tenant_id)
+      .eq('activo', true)
+      .is('deleted_at', null)
+      .gte('created_at', periodoAnterior.startDate)
+      .lte('created_at', periodoAnterior.endDate);
+
+    // Calcular totales del período anterior
+    const totalVentasAnt = (ventasAnt || []).reduce((sum, v) => sum + parseFloat(v.total || 0), 0);
+    const totalComprasAnt = (comprasAnt || []).reduce((sum, c) => sum + parseFloat(c.costo_total || 0), 0);
+    const totalGastosAnt = (gastosAnt || []).reduce((sum, g) => sum + parseFloat(g.monto || 0), 0);
+    const utilidadAnt = totalVentasAnt - totalComprasAnt;
+
+    // Calcular variaciones porcentuales
+    const variacionVentas = totalVentasAnt > 0 
+      ? ((processedData.resumen.ventas - totalVentasAnt) / totalVentasAnt) * 100 
+      : 0;
+    const variacionUtilidad = utilidadAnt > 0 
+      ? ((processedData.resumen.utilidad - utilidadAnt) / utilidadAnt) * 100 
+      : 0;
+    const variacionGastos = totalGastosAnt > 0 
+      ? ((processedData.resumen.gastos - totalGastosAnt) / totalGastosAnt) * 100 
+      : 0;
+
+    setDatosComparativos({
+      ventasAnterior: totalVentasAnt,
+      comprasAnterior: totalComprasAnt,
+      gastosAnterior: totalGastosAnt,
+      utilidadAnterior: utilidadAnt,
+      variacionVentas: variacionVentas,
+      variacionUtilidad: variacionUtilidad,
+      variacionGastos: variacionGastos
+    });
+  } else {
+    setDatosComparativos(null);
+  }
+
+  setLoading(false);
 
     } catch (error) {
       console.error('Error cargando datos:', error);
       setLoading(false);
     }
+  };
+
+  const getPeriodoAnterior = (range) => {
+    const today = getTodayInBogota();
+    let startDateISO, endDateISO;
+  
+    switch (range) {
+      case 'today':
+        // Ayer
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split('T')[0];
+        
+        startDateISO = getStartOfDayInBogota(yesterdayStr);
+        endDateISO = getEndOfDayInBogota(yesterdayStr);
+        break;
+        
+      case 'week':
+        // Semana anterior (días 14 a 8 días atrás)
+        const twoWeeksAgo = new Date(today);
+        twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+        const twoWeeksAgoStr = twoWeeksAgo.toISOString().split('T')[0];
+        
+        const eightDaysAgo = new Date(today);
+        eightDaysAgo.setDate(eightDaysAgo.getDate() - 8);
+        const eightDaysAgoStr = eightDaysAgo.toISOString().split('T')[0];
+        
+        startDateISO = getStartOfDayInBogota(twoWeeksAgoStr);
+        endDateISO = getEndOfDayInBogota(eightDaysAgoStr);
+        break;
+        
+      case 'month':
+        // Mes anterior
+        const lastMonthDate = new Date(today);
+        lastMonthDate.setMonth(lastMonthDate.getMonth() - 1);
+        const lastMonthStr = lastMonthDate.toISOString().split('T')[0];
+        const firstDayLastMonth = lastMonthStr.substring(0, 8) + '01';
+        
+        // Último día del mes anterior
+        const lastDayLastMonth = new Date(today.substring(0, 8) + '01');
+        lastDayLastMonth.setDate(lastDayLastMonth.getDate() - 1);
+        const lastDayLastMonthStr = lastDayLastMonth.toISOString().split('T')[0];
+        
+        startDateISO = getStartOfDayInBogota(firstDayLastMonth);
+        endDateISO = getEndOfDayInBogota(lastDayLastMonthStr);
+        break;
+        
+      default:
+        // Para custom, usar el mismo rango de días pero en período anterior
+        startDateISO = getStartOfDayInBogota(today);
+        endDateISO = getEndOfDayInBogota(today);
+    }
+  
+    return { startDate: startDateISO, endDate: endDateISO };
   };
 
   const getDateRange = (range) => {
@@ -758,6 +880,24 @@ const gastosCompletos = [
     }
   };
 
+  const ComparisonBadge = ({ value, isPositiveGood = true }) => {
+    if (!value || value === 0) return null;
+    
+    const isPositive = value > 0;
+    const shouldBeGreen = isPositiveGood ? isPositive : !isPositive;
+    
+    return (
+      <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold ${
+        shouldBeGreen 
+          ? 'bg-green-100 text-green-700' 
+          : 'bg-red-100 text-red-700'
+      }`}>
+        {isPositive ? '↗' : '↘'}
+        {Math.abs(value).toFixed(1)}%
+      </div>
+    );
+  };
+
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('es-CO', {
       style: 'currency',
@@ -1193,13 +1333,19 @@ const gastosCompletos = [
               </div>
             )}
 
-        {/* Resumen Ejecutivo */}
+        {/* Resumen Ejecutivo con Comparativas */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-emerald-500">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex-1">
                 <p className="text-gray-600 text-sm font-medium">Total Ventas</p>
                 <p className="text-2xl font-bold text-gray-800 mt-1">{formatCurrency(dashboardData.resumen.ventas)}</p>
+                {datosComparativos && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <ComparisonBadge value={datosComparativos.variacionVentas} isPositiveGood={true} />
+                    <span className="text-xs text-gray-500">vs período anterior</span>
+                  </div>
+                )}
               </div>
               <div className="bg-emerald-100 p-3 rounded-full">
                 <DollarSign className="w-6 h-6 text-emerald-600" />
@@ -1208,10 +1354,17 @@ const gastosCompletos = [
           </div>
 
           <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex-1">
                 <p className="text-gray-600 text-sm font-medium">Total Compras</p>
                 <p className="text-2xl font-bold text-gray-800 mt-1">{formatCurrency(dashboardData.resumen.compras)}</p>
+                {datosComparativos && datosComparativos.comprasAnterior > 0 && (
+                  <div className="mt-2">
+                    <span className="text-xs text-gray-500">
+                      Anterior: {formatCurrency(datosComparativos.comprasAnterior)}
+                    </span>
+                  </div>
+                )}
               </div>
               <div className="bg-blue-100 p-3 rounded-full">
                 <ShoppingCart className="w-6 h-6 text-blue-600" />
@@ -1220,10 +1373,16 @@ const gastosCompletos = [
           </div>
 
           <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-amber-500">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex-1">
                 <p className="text-gray-600 text-sm font-medium">Total Gastos</p>
                 <p className="text-2xl font-bold text-gray-800 mt-1">{formatCurrency(dashboardData.resumen.gastos)}</p>
+                {datosComparativos && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <ComparisonBadge value={datosComparativos.variacionGastos} isPositiveGood={false} />
+                    <span className="text-xs text-gray-500">vs período anterior</span>
+                  </div>
+                )}
               </div>
               <div className="bg-amber-100 p-3 rounded-full">
                 <Package className="w-6 h-6 text-amber-600" />
@@ -1232,10 +1391,16 @@ const gastosCompletos = [
           </div>
 
           <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-purple-500">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex-1">
                 <p className="text-gray-600 text-sm font-medium">Utilidad Bruta</p>
                 <p className="text-2xl font-bold text-gray-800 mt-1">{formatCurrency(dashboardData.resumen.utilidad)}</p>
+                {datosComparativos && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <ComparisonBadge value={datosComparativos.variacionUtilidad} isPositiveGood={true} />
+                    <span className="text-xs text-gray-500">vs período anterior</span>
+                  </div>
+                )}
               </div>
               <div className="bg-purple-100 p-3 rounded-full">
                 <TrendingUp className="w-6 h-6 text-purple-600" />
@@ -1345,10 +1510,16 @@ const gastosCompletos = [
         {/* Resumen Ejecutivo */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-emerald-500">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex-1">
                 <p className="text-gray-600 text-sm font-medium">Total Ventas</p>
                 <p className="text-2xl font-bold text-gray-800 mt-1">{formatCurrency(dashboardData.resumen.ventas)}</p>
+                {datosComparativos && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <ComparisonBadge value={datosComparativos.variacionVentas} isPositiveGood={true} />
+                    <span className="text-xs text-gray-500">vs período anterior</span>
+                  </div>
+                )}
               </div>
               <div className="bg-emerald-100 p-3 rounded-full">
                 <DollarSign className="w-6 h-6 text-emerald-600" />
@@ -1357,10 +1528,17 @@ const gastosCompletos = [
           </div>
 
           <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-blue-500">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex-1">
                 <p className="text-gray-600 text-sm font-medium">Total Compras</p>
                 <p className="text-2xl font-bold text-gray-800 mt-1">{formatCurrency(dashboardData.resumen.compras)}</p>
+                {datosComparativos && datosComparativos.comprasAnterior > 0 && (
+                  <div className="mt-2">
+                    <span className="text-xs text-gray-500">
+                      Anterior: {formatCurrency(datosComparativos.comprasAnterior)}
+                    </span>
+                  </div>
+                )}
               </div>
               <div className="bg-blue-100 p-3 rounded-full">
                 <ShoppingCart className="w-6 h-6 text-blue-600" />
@@ -1369,10 +1547,16 @@ const gastosCompletos = [
           </div>
 
           <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-amber-500">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex-1">
                 <p className="text-gray-600 text-sm font-medium">Total Gastos</p>
                 <p className="text-2xl font-bold text-gray-800 mt-1">{formatCurrency(dashboardData.resumen.gastos)}</p>
+                {datosComparativos && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <ComparisonBadge value={datosComparativos.variacionGastos} isPositiveGood={false} />
+                    <span className="text-xs text-gray-500">vs período anterior</span>
+                  </div>
+                )}
               </div>
               <div className="bg-amber-100 p-3 rounded-full">
                 <Package className="w-6 h-6 text-amber-600" />
@@ -1381,10 +1565,16 @@ const gastosCompletos = [
           </div>
 
           <div className="bg-white rounded-lg shadow-md p-6 border-l-4 border-purple-500">
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex-1">
                 <p className="text-gray-600 text-sm font-medium">Utilidad Bruta</p>
                 <p className="text-2xl font-bold text-gray-800 mt-1">{formatCurrency(dashboardData.resumen.utilidad)}</p>
+                {datosComparativos && (
+                  <div className="mt-2 flex items-center gap-2">
+                    <ComparisonBadge value={datosComparativos.variacionUtilidad} isPositiveGood={true} />
+                    <span className="text-xs text-gray-500">vs período anterior</span>
+                  </div>
+                )}
               </div>
               <div className="bg-purple-100 p-3 rounded-full">
                 <TrendingUp className="w-6 h-6 text-purple-600" />

@@ -30,6 +30,8 @@ const Dashboard = () => {
   const [cierreData, setCierreData] = useState(null);
   const [savingCierre, setSavingCierre] = useState(false);
   const [stockContadoPorProducto, setStockContadoPorProducto] = useState({});
+  const [modoCierre, setModoCierre] = useState('rapido'); // 'rapido', 'critico', 'completo'
+  const [productosParaCierre, setProductosParaCierre] = useState([]);
 
   // Estados para menú hamburguesa y modales
   const [showBaseModal, setShowBaseModal] = useState(false);
@@ -671,6 +673,7 @@ const gastosCompletos = [
 
     const cajaEsperada = dashboardData.resumen.ventas - dashboardData.resumen.compras - dashboardData.resumen.gastos;
 
+    // Inicializar stock contado vacío
     const stockContadoInicial = {};
     allProductos.forEach(producto => {
       stockContadoInicial[producto.producto_id] = '';
@@ -690,10 +693,23 @@ const gastosCompletos = [
     });
 
     setStockContadoPorProducto(stockContadoInicial);
+    setModoCierre('rapido'); // Por defecto, modo rápido
+    setProductosParaCierre([]); // Se llenará según el modo
     setShowCierreModal(true);
     setCierreStep(1);
     setCajaContada('');
     setNotasCierre('');
+  };
+
+  const getProductosCriticos = () => {
+    // Productos con movimiento o stock bajo
+    const productosConMovimiento = dashboardData.topProductos.map(p => p.nombre);
+    const productosStockBajo = allProductos.filter(p => parseFloat(p.stock_actual) < 10);
+    
+    return allProductos.filter(producto => 
+      productosConMovimiento.includes(producto.producto) || 
+      parseFloat(producto.stock_actual) < 10
+    );
   };
 
   const handleProcesarCierre = () => {
@@ -702,15 +718,45 @@ const gastosCompletos = [
       return;
     }
 
-    const productosSinStock = allProductos.filter(p => 
-      stockContadoPorProducto[p.producto_id] === '' || 
-      stockContadoPorProducto[p.producto_id] === undefined ||
-      isNaN(parseFloat(stockContadoPorProducto[p.producto_id]))
-    );
+    // Validar según el modo de cierre
+    if (modoCierre === 'completo') {
+      const productosSinStock = allProductos.filter(p => 
+        stockContadoPorProducto[p.producto_id] === '' || 
+        stockContadoPorProducto[p.producto_id] === undefined ||
+        isNaN(parseFloat(stockContadoPorProducto[p.producto_id]))
+      );
 
-    if (productosSinStock.length > 0) {
-      alert(`⚠️ Por favor ingrese el stock contado para TODOS los productos.\n\nFaltan: ${productosSinStock.map(p => p.producto).join(', ')}`);
-      return;
+      if (productosSinStock.length > 0) {
+        alert(`⚠️ Por favor ingrese el stock contado para TODOS los productos.\n\nFaltan: ${productosSinStock.map(p => p.producto).join(', ')}`);
+        return;
+      }
+    } else if (modoCierre === 'critico') {
+      const productosValidar = productosParaCierre;
+      const productosSinStock = productosValidar.filter(p => 
+        stockContadoPorProducto[p.producto_id] === '' || 
+        stockContadoPorProducto[p.producto_id] === undefined ||
+        isNaN(parseFloat(stockContadoPorProducto[p.producto_id]))
+      );
+
+      if (productosSinStock.length > 0) {
+        alert(`⚠️ Por favor ingrese el stock de productos críticos.\n\nFaltan: ${productosSinStock.map(p => p.producto).join(', ')}`);
+        return;
+      }
+
+      // Para productos no incluidos, usar stock actual
+      allProductos.forEach(producto => {
+        if (!productosValidar.find(p => p.producto_id === producto.producto_id)) {
+          stockContadoPorProducto[producto.producto_id] = producto.stock_actual;
+        }
+      });
+      setStockContadoPorProducto({...stockContadoPorProducto});
+    } else if (modoCierre === 'rapido') {
+      // Cierre rápido: usar stock actual para todos
+      const stockRapido = {};
+      allProductos.forEach(producto => {
+        stockRapido[producto.producto_id] = producto.stock_actual;
+      });
+      setStockContadoPorProducto(stockRapido);
     }
 
     setCierreStep(2);
@@ -2034,63 +2080,158 @@ const gastosCompletos = [
               {/* Contenido del Modal */}
               <div className="p-6">
                 {cierreStep === 1 ? (
-                  // PASO 1: Ingreso de Datos
                   <div className="space-y-6">
-                    {/* Solo mostrar Caja Esperada */}
-                    <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
-                      <h3 className="font-bold text-emerald-900 mb-3 flex items-center gap-2">
-                        <CheckCircle className="w-5 h-5" />
-                        Caja Esperada (Sistema)
-                      </h3>
-                      
-                      <div className="bg-white rounded-lg p-4 border border-emerald-200">
-                        <p className="text-sm text-gray-600 mb-1">💰 Caja Esperada</p>
-                        <p className="text-2xl font-bold text-emerald-700">
-                          {formatCurrency(cierreData.cajaEsperada)}
-                        </p>
-                        <p className="text-xs text-gray-500 mt-2">
-                          = Ventas ({formatCurrency(cierreData.ventasTotal)}) - Compras ({formatCurrency(cierreData.comprasTotal)}) - Gastos ({formatCurrency(cierreData.gastosTotal)})
-                        </p>
-                      </div>
+                  {/* PASO 0: Selección de Modo de Cierre */}
+                  <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-6 border-2 border-blue-300">
+                    <h3 className="text-xl font-bold text-blue-900 mb-4 text-center">
+                      Selecciona el Tipo de Cierre
+                    </h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                      {/* Cierre Rápido */}
+                      <button
+                        onClick={() => {
+                          setModoCierre('rapido');
+                          setProductosParaCierre([]);
+                        }}
+                        className={`p-6 rounded-lg border-2 transition-all ${
+                          modoCierre === 'rapido'
+                            ? 'bg-emerald-500 border-emerald-600 text-white shadow-lg scale-105'
+                            : 'bg-white border-gray-300 text-gray-700 hover:border-emerald-400'
+                        }`}
+                      >
+                        <div className="text-center">
+                          <div className="text-4xl mb-3">🚀</div>
+                          <h4 className="font-bold text-lg mb-2">Cierre Rápido</h4>
+                          <p className="text-sm opacity-90">
+                            Solo caja, sin contar inventario
+                          </p>
+                          <p className="text-xs mt-2 opacity-75">
+                            ⏱️ ~30 segundos
+                          </p>
+                        </div>
+                      </button>
+
+                      {/* Cierre Crítico */}
+                      <button
+                        onClick={() => {
+                          setModoCierre('critico');
+                          setProductosParaCierre(getProductosCriticos());
+                        }}
+                        className={`p-6 rounded-lg border-2 transition-all ${
+                          modoCierre === 'critico'
+                            ? 'bg-amber-500 border-amber-600 text-white shadow-lg scale-105'
+                            : 'bg-white border-gray-300 text-gray-700 hover:border-amber-400'
+                        }`}
+                      >
+                        <div className="text-center">
+                          <div className="text-4xl mb-3">📦</div>
+                          <h4 className="font-bold text-lg mb-2">Cierre Crítico</h4>
+                          <p className="text-sm opacity-90">
+                            Productos con movimiento y stock bajo
+                          </p>
+                          <p className="text-xs mt-2 opacity-75">
+                            ⏱️ ~2-3 minutos
+                          </p>
+                        </div>
+                      </button>
+
+                      {/* Cierre Completo */}
+                      <button
+                        onClick={() => {
+                          setModoCierre('completo');
+                          setProductosParaCierre(allProductos);
+                        }}
+                        className={`p-6 rounded-lg border-2 transition-all ${
+                          modoCierre === 'completo'
+                            ? 'bg-purple-500 border-purple-600 text-white shadow-lg scale-105'
+                            : 'bg-white border-gray-300 text-gray-700 hover:border-purple-400'
+                        }`}
+                      >
+                        <div className="text-center">
+                          <div className="text-4xl mb-3">🔍</div>
+                          <h4 className="font-bold text-lg mb-2">Cierre Completo</h4>
+                          <p className="text-sm opacity-90">
+                            Contar todos los productos
+                          </p>
+                          <p className="text-xs mt-2 opacity-75">
+                            ⏱️ ~5-10 minutos
+                          </p>
+                        </div>
+                      </button>
                     </div>
 
-                    {/* Ingreso de Caja */}
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-2">
-                          💵 Dinero en Caja (Conteo Manual) *
-                        </label>
-                        <input
-                          type="number"
-                          value={cajaContada}
-                          onChange={(e) => setCajaContada(e.target.value)}
-                          placeholder="Ingrese el dinero contado en caja"
-                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-lg"
-                        />
+                    {modoCierre === 'critico' && productosParaCierre.length > 0 && (
+                      <div className="bg-white rounded-lg p-4 border border-amber-300">
+                        <p className="text-sm text-amber-900 font-semibold mb-2">
+                          📋 Productos a contar: {productosParaCierre.length} de {allProductos.length}
+                        </p>
+                        <p className="text-xs text-amber-700">
+                          Se contarán solo productos con movimiento reciente y stock bajo. El resto usará el stock del sistema.
+                        </p>
                       </div>
+                    )}
+                  </div>
 
-                      <div>
-                        <label className="block text-sm font-bold text-gray-700 mb-2">
-                          📝 Notas / Observaciones (Opcional)
-                        </label>
-                        <textarea
-                          value={notasCierre}
-                          onChange={(e) => setNotasCierre(e.target.value)}
-                          placeholder="Ej: Diferencia por vueltos, gastos no registrados, etc."
-                          rows={3}
-                          className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                        />
-                      </div>
+                  {/* Caja Esperada */}
+                  <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
+                    <h3 className="font-bold text-emerald-900 mb-3 flex items-center gap-2">
+                      <CheckCircle className="w-5 h-5" />
+                      Caja Esperada (Sistema)
+                    </h3>
+                    
+                    <div className="bg-white rounded-lg p-4 border border-emerald-200">
+                      <p className="text-sm text-gray-600 mb-1">💰 Caja Esperada</p>
+                      <p className="text-2xl font-bold text-emerald-700">
+                        {formatCurrency(cierreData.cajaEsperada)}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-2">
+                        = Ventas ({formatCurrency(cierreData.ventasTotal)}) - Compras ({formatCurrency(cierreData.comprasTotal)}) - Gastos ({formatCurrency(cierreData.gastosTotal)})
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Ingreso de Caja */}
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">
+                        💵 Dinero en Caja (Conteo Manual) *
+                      </label>
+                      <input
+                        type="number"
+                        value={cajaContada}
+                        onChange={(e) => setCajaContada(e.target.value)}
+                        placeholder="Ingrese el dinero contado en caja"
+                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent text-lg"
+                      />
                     </div>
 
-                    {/* Tabla con stock por producto */}
+                    <div>
+                      <label className="block text-sm font-bold text-gray-700 mb-2">
+                        📝 Notas / Observaciones (Opcional)
+                      </label>
+                      <textarea
+                        value={notasCierre}
+                        onChange={(e) => setNotasCierre(e.target.value)}
+                        placeholder="Ej: Diferencia por vueltos, gastos no registrados, etc."
+                        rows={3}
+                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Solo mostrar inventario si NO es cierre rápido */}
+                  {modoCierre !== 'rapido' && (
                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                       <h4 className="font-bold text-yellow-900 mb-3 flex items-center gap-2">
                         <Edit2 className="w-5 h-5" />
-                        Ingrese el Stock Contado de Cada Producto *
+                        {modoCierre === 'critico' ? 'Productos Críticos a Contar' : 'Ingrese el Stock Contado de Cada Producto'} *
                       </h4>
                       <p className="text-xs text-yellow-800 mb-3">
-                        Cuente físicamente cada producto y escriba la cantidad en la columna "Stock Contado"
+                        {modoCierre === 'critico' 
+                          ? `Cuenta solo ${productosParaCierre.length} productos críticos. El resto usará el stock del sistema.`
+                          : 'Cuente físicamente cada producto y escriba la cantidad en la columna "Stock Contado"'
+                        }
                       </p>
                       
                       <div>
@@ -2101,7 +2242,6 @@ const gastosCompletos = [
                               <tr>
                                 <th className="px-4 py-2 text-left font-semibold text-yellow-900">Código</th>
                                 <th className="px-4 py-2 text-left font-semibold text-yellow-900">Producto</th>
-                                <th className="px-4 py-2 text-center font-semibold text-yellow-900 bg-yellow-200">Stock Inicial</th>
                                 <th className="px-4 py-2 text-center font-semibold text-yellow-900">Stock Esperado</th>
                                 <th className="px-4 py-2 text-center font-semibold text-yellow-900">Unidad</th>
                                 <th className="px-4 py-2 text-center font-semibold text-yellow-900">Stock Contado *</th>
@@ -2109,7 +2249,7 @@ const gastosCompletos = [
                               </tr>
                             </thead>
                             <tbody className="bg-white">
-                              {allProductos.map((producto) => {
+                              {(modoCierre === 'completo' ? allProductos : productosParaCierre).map((producto) => {
                                 const stockContado = parseFloat(stockContadoPorProducto[producto.producto_id]) || 0;
                                 const diferencia = stockContado - parseFloat(producto.stock_actual || 0);
                                 const unidad = producto.unidad_peso || 'und';
@@ -2117,9 +2257,6 @@ const gastosCompletos = [
                                   <tr key={producto.producto_id} className="border-b border-yellow-200 hover:bg-yellow-50">
                                     <td className="px-4 py-2 font-semibold text-gray-900">{producto.codigo}</td>
                                     <td className="px-4 py-2 text-gray-900">{producto.producto}</td>
-                                    <td className="px-4 py-2 text-center text-gray-900 font-bold bg-blue-50">
-                                      {parseFloat(producto.stock_inicial || 0).toFixed(0)}
-                                    </td>
                                     <td className="px-4 py-2 text-center text-gray-700">
                                       {Math.round(parseFloat(producto.stock_actual || 0))}
                                     </td>
@@ -2150,72 +2287,42 @@ const gastosCompletos = [
                           </table>
                         </div>
 
-                        {/* VERSIÓN MÓVIL - Tarjetas */}
+                        {/* VERSIÓN MÓVIL - Tarjetas simplificadas */}
                         <div className="block md:hidden max-h-96 overflow-y-auto space-y-3">
-                          {allProductos.map((producto) => {
+                          {(modoCierre === 'completo' ? allProductos : productosParaCierre).map((producto) => {
                             const stockContado = parseFloat(stockContadoPorProducto[producto.producto_id]) || 0;
                             const diferencia = stockContado - parseFloat(producto.stock_actual || 0);
                             const unidad = producto.unidad_peso || 'und';
 
                             return (
-                              <div key={producto.producto_id} className="bg-white border-2 border-yellow-200 rounded-lg p-4 shadow-sm hover:bg-yellow-50 transition-colors">
-                                {/* Header con código */}
-                                <div className="flex items-start justify-between mb-3">
-                                  <div className="flex-1">
-                                    <div className="text-xs font-bold text-yellow-900 bg-yellow-100 px-2 py-1 rounded inline-block mb-2">
-                                      {producto.codigo}
-                                    </div>
-                                    <h4 className="text-base font-bold text-gray-900">{producto.producto}</h4>
+                              <div key={producto.producto_id} className="bg-white border-2 border-yellow-200 rounded-lg p-4 shadow-sm">
+                                <div className="flex items-center justify-between mb-2">
+                                  <div>
+                                    <span className="text-xs font-bold text-yellow-900 bg-yellow-100 px-2 py-1 rounded">{producto.codigo}</span>
+                                    <h4 className="text-sm font-bold text-gray-900 mt-1">{producto.producto}</h4>
+                                  </div>
+                                  <div className="text-right text-xs text-gray-600">
+                                    <div>Esperado: <span className="font-bold">{Math.round(parseFloat(producto.stock_actual || 0))} {unidad}</span></div>
                                   </div>
                                 </div>
 
-                                {/* Información de stocks */}
-                                <div className="grid grid-cols-3 gap-2 mb-3 text-center">
-                                  <div className="bg-blue-50 rounded p-2">
-                                    <p className="text-xs text-blue-700 font-medium">Inicial</p>
-                                    <p className="text-sm font-bold text-blue-900">
-                                      {parseFloat(producto.stock_inicial || 0).toFixed(0)}
-                                    </p>
-                                  </div>
-                                  <div className="bg-gray-50 rounded p-2">
-                                    <p className="text-xs text-gray-700 font-medium">Esperado</p>
-                                    <p className="text-sm font-bold text-gray-900">
-                                      {Math.round(parseFloat(producto.stock_actual || 0))}
-                                    </p>
-                                  </div>
-                                  <div className="bg-yellow-50 rounded p-2">
-                                    <p className="text-xs text-yellow-700 font-medium">Unidad</p>
-                                    <p className="text-sm font-bold text-yellow-900">{unidad}</p>
-                                  </div>
-                                </div>
+                                <input
+                                  type="number"
+                                  value={stockContadoPorProducto[producto.producto_id] || ''}
+                                  onChange={(e) => setStockContadoPorProducto({
+                                    ...stockContadoPorProducto,
+                                    [producto.producto_id]: e.target.value
+                                  })}
+                                  placeholder="Stock contado"
+                                  className="w-full px-4 py-2 text-lg border-2 border-yellow-300 rounded-lg text-center focus:ring-2 focus:ring-yellow-500 mb-2"
+                                />
 
-                                {/* Input de stock contado */}
-                                <div className="mb-3">
-                                  <label className="block text-sm font-bold text-yellow-900 mb-2">
-                                    📦 Stock Contado *
-                                  </label>
-                                  <input
-                                    type="number"
-                                    value={stockContadoPorProducto[producto.producto_id] || ''}
-                                    onChange={(e) => setStockContadoPorProducto({
-                                      ...stockContadoPorProducto,
-                                      [producto.producto_id]: e.target.value
-                                    })}
-                                    placeholder="Ingrese cantidad"
-                                    className="w-full px-4 py-3 text-lg border-2 border-yellow-300 rounded-lg text-center focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                                  />
-                                </div>
-
-                                {/* Diferencia */}
-                                <div className={`text-center py-2 rounded-lg font-bold ${
+                                <div className={`text-center py-1 rounded font-bold text-sm ${
                                   diferencia > 0 ? 'bg-green-100 text-green-700' : 
                                   diferencia < 0 ? 'bg-red-100 text-red-700' : 
                                   'bg-gray-100 text-gray-700'
                                 }`}>
-                                  <span className="text-xs">Diferencia: </span>
-                                  <span className="text-lg">
-                                    {diferencia > 0 ? '+' : ''}{diferencia} {unidad}
-                                  </span>
+                                  Diferencia: {diferencia > 0 ? '+' : ''}{diferencia} {unidad}
                                 </div>
                               </div>
                             );
@@ -2223,23 +2330,32 @@ const gastosCompletos = [
                         </div>
                       </div>
                     </div>
+                  )}
 
-                    <div className="flex gap-3 pt-4">
-                      <button
-                        onClick={() => setShowCierreModal(false)}
-                        className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        onClick={handleProcesarCierre}
-                        disabled={!cajaContada || parseFloat(cajaContada) < 0}
-                        className="flex-1 px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-bold disabled:bg-gray-300 disabled:cursor-not-allowed"
-                      >
-                        PROCESAR CIERRE →
-                      </button>
+                  {modoCierre === 'rapido' && (
+                    <div className="bg-blue-50 border border-blue-300 rounded-lg p-4">
+                      <p className="text-sm text-blue-900">
+                        ℹ️ <strong>Cierre Rápido:</strong> El inventario se guardará con el stock actual del sistema. Ideal para cierres diarios sin diferencias significativas.
+                      </p>
                     </div>
+                  )}
+
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      onClick={() => setShowCierreModal(false)}
+                      className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={handleProcesarCierre}
+                      disabled={!cajaContada || parseFloat(cajaContada) < 0}
+                      className="flex-1 px-6 py-3 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-bold disabled:bg-gray-300 disabled:cursor-not-allowed"
+                    >
+                      PROCESAR CIERRE →
+                    </button>
                   </div>
+                </div>
                 ) : (
                   // PASO 2: Confirmación y Resultados
                   <div className="space-y-6">
